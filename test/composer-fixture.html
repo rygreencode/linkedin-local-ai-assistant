@@ -1,0 +1,68 @@
+<!doctype html><meta charset="utf-8"><title>composer fixture</title>
+<style>body{font:14px system-ui;padding:20px}
+#box{border:1px solid #999;min-height:60px;padding:8px;margin:10px 0}
+pre{background:#eee;padding:8px}</style>
+<h3>Fake LinkedIn composer</h3>
+<div id="box" class="msg-form__contenteditable" contenteditable="true" role="textbox"><p></p></div>
+<pre id="out">ready</pre>
+<script>
+// Mirrors writeToComposer() from content.js
+function writeToComposer(text, { replace }) {
+  const el = document.querySelector('div[contenteditable="true"][role="textbox"]');
+  el.focus();
+  const sel = window.getSelection();
+  if (replace) {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    sel.removeAllRanges(); sel.addRange(range);
+  } else if (!sel.rangeCount || !el.contains(sel.anchorNode)) {
+    const end = document.createRange();
+    end.selectNodeContents(el); end.collapse(false);
+    sel.removeAllRanges(); sel.addRange(end);
+  }
+  const inserted = document.execCommand('insertText', false, text);
+  if (!inserted) {
+    if (replace) { el.textContent=''; const p=document.createElement('p'); p.textContent=text; el.appendChild(p); }
+    else { (el.lastElementChild || el).append(document.createTextNode(text)); }
+    el.dispatchEvent(new InputEvent('input',{bubbles:true,data:text,inputType:'insertText'}));
+  }
+  const end2 = document.createRange();
+  end2.selectNodeContents(el); end2.collapse(false);
+  sel.removeAllRanges(); sel.addRange(end2);
+  return { inserted, text: el.textContent };
+}
+function insertMeetingLink(url) {
+  const el = document.querySelector('div[contenteditable="true"][role="textbox"]');
+  const existing = el.textContent;
+  const prefix = existing.length && !/\s$/.test(existing) ? ' ' : '';
+  return writeToComposer(prefix + url, { replace: false });
+}
+let events = 0;
+document.getElementById('box').addEventListener('input', () => events++);
+window.runTests = function () {
+  const URL = 'https://meetings-eu1.hubspot.com/ryan-green3/letstalkantler';
+  const box = document.getElementById('box');
+  const results = [];
+  // 1. link into an empty composer
+  box.innerHTML = '<p></p>'; events = 0;
+  insertMeetingLink(URL);
+  results.push({ case: 'empty composer', text: box.textContent, events });
+  // 2. draft first, then link appended
+  box.innerHTML = '<p></p>'; events = 0;
+  writeToComposer('Happy to chat, Alex.', { replace: true });
+  insertMeetingLink(URL);
+  results.push({ case: 'draft then link', text: box.textContent, events });
+  // 3. draft already ends in a space
+  box.innerHTML = '<p></p>'; events = 0;
+  writeToComposer('Grab a slot: ', { replace: true });
+  insertMeetingLink(URL);
+  results.push({ case: 'trailing space', text: box.textContent, events });
+  // 4. regenerate replaces, does not append
+  box.innerHTML = '<p></p>'; events = 0;
+  writeToComposer('First draft.', { replace: true });
+  writeToComposer('Second draft.', { replace: true });
+  results.push({ case: 'replace mode', text: box.textContent, events });
+  document.getElementById('out').textContent = JSON.stringify(results, null, 2);
+  return results;
+};
+</script>
