@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>LinkedIn AI Assistant</title>
+<style>
+  body { width: 320px; margin: 0; padding: 12px;
+         font: 13px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif; color: #222; }
+  h1 { font-size: 13px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .06em; color: #666; }
+  h1:not(:first-child) { margin-top: 16px; }
+  .row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
+  .row:last-child { border-bottom: 0; }
+  .name { flex: 1; }
+  .pill { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px; }
+  .ok { background: #e4f4e8; color: #14632c; }
+  .fail { background: #fce8e6; color: #b3261e; }
+  .tier { font-size: 11px; color: #888; }
+  button { font: inherit; cursor: pointer; border: 1px solid #ccc; background: #fff;
+           border-radius: 4px; padding: 2px 8px; }
+  #engine { padding: 8px; border-radius: 4px; background: #f5f5f5; font-size: 12px; }
+  #engine code { font-size: 11px; }
+  footer { margin-top: 14px; display: flex; gap: 8px; }
+</style>
+<h1>Inference engine</h1>
+<div id="engine">Checking…</div>
+<h1>DOM diagnostics</h1>
+<div id="diag">Open a LinkedIn tab to run diagnostics.</div>
+<footer>
+  <button id="recheck">Re-check</button>
+  <button id="options">Settings</button>
+</footer>
+<script src="popup.js"></script>
