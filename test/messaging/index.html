@@ -3,6 +3,7 @@
 button{font:inherit;padding:4px 12px;border-radius:14px;border:1px solid #999;background:#fff;cursor:pointer}
 button[aria-pressed="true"]{background:#0a66c2;color:#fff}
 pre{background:#eee;padding:10px;margin-top:14px}</style>
+<div role="main" class="msg__container" style="max-width:640px;margin:80px auto 0;border:1px dashed #bbb;padding:16px">
 <h3>Fake LinkedIn conversation filters</h3>
 <button id="unread" aria-label="Unread" aria-pressed="false">Unread</button>
 <button id="send" aria-label="Send">Send</button>
@@ -12,6 +13,7 @@ pre{background:#eee;padding:10px;margin-top:14px}</style>
   <li class="msg-conversation-listitem"><a href="#" class="msg-conversation-listitem__link">Casey Wu</a></li>
 </ul>
 <pre id="out">ready</pre>
+</div>
 <script>
 // Mirrors the unread-filter logic from content.js
 const LLA = { settings: { selectorOverrides: {} }, log(){}, resolve(key){

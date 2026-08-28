@@ -15,7 +15,6 @@ globalThis.LLA_DEFAULT_SETTINGS = {
   styleSamples: [],
   selectorOverrides: {},
   showShortcutHint: true,
-  showNavHint: true,
   autoStartOllama: true,
   autoStopOllama: true,
   autoStopGraceMin: 5,
@@ -52,6 +51,12 @@ globalThis.LLA_SELECTOR_TIERS = {
     'p.msg-entity-lockup__entity-info',
     'div.msg-title-bar p'
   ],
+  mainContainer: [
+    '.msg__container',
+    '.scaffold-layout__content',
+    'div[role="main"]',
+    'main'
+  ],
   conversationItem: [
     'li.msg-conversation-listitem',
     'ul.msg-conversations-container__conversations-list > li',
@@ -77,5 +82,6 @@ globalThis.LLA_SELECTOR_LABELS = {
   headerSubtitle: 'Recipient headline',
   formAnchor: 'Compose box (UI anchor)',
   unreadFilter: 'Unread filter',
-  conversationItem: 'Conversation list item'
+  conversationItem: 'Conversation list item',
+  mainContainer: 'Main content column'
 };
