@@ -188,29 +188,24 @@ nothing is selected yet it opens the first row rather than the second.
 
 ### Shortcut reminder
 
-A small chip hovers directly above LinkedIn's Unread control, with an arrow
-pointing at it, showing the shortcut and the live state of the filter:
+A single bubble carries every shortcut, with the unread filter's live state:
 
 ```
-⌥U unread [on]  ×
+⌥U unread [on] | ⌥N next conversation  ×
 ```
 
-It tracks the control on scroll and resize, clamps itself to the viewport, and
-flips to sit *below* the control when there is not enough room above. If the
-Unread control cannot be found at all it parks in the bottom-left corner rather
-than disappearing.
+It is anchored to the **main content column**, not the viewport: its left edge
+lines up with the column's left edge and it sits just above the column's top, so
+it stays with the UI on wide windows instead of drifting into the margin. It
+tracks the column on scroll and resize.
 
-A second bubble sits on the left near the top of the window for the navigation
-key:
+If the column starts too close to the top of the window for the bubble to fit
+above it, the bubble moves just inside the column. If no content column resolves
+at all, it falls back to a fixed position near the top-left.
 
-```
-⌥N next conversation  ×
-```
-
-Dismiss either with its ×; re-enable them under **Show the shortcut reminder
-chip** and **Show the ⌥N next-conversation bubble** in Settings. Like all
-injected UI they live in shadow roots, so LinkedIn's CSS cannot affect them and
-vice versa.
+Dismiss it with the ×; re-enable under **Show the shortcut reminder bubble** in
+Settings. Like all injected UI it lives in a shadow root, so LinkedIn's CSS
+cannot affect it and vice versa.
 
 ---
 
@@ -252,8 +247,7 @@ All settings live in `chrome.storage.local` and are edited on the options page.
 | `autoStartOllama` | on | start the server when you open LinkedIn Messages |
 | `autoStopOllama` | on | stop it when no LinkedIn tab remains |
 | `autoStopGraceMin` | `5` | 1 minute is the practical floor (MV3 workers sleep) |
-| `showShortcutHint` | on | the unread chip, anchored above the filter control |
-| `showNavHint` | on | the ⌥N bubble, top-left of the window |
+| `showShortcutHint` | on | the shortcut bubble, anchored to the content column |
 | `debug` | off | logs scraped context and matched selectors to the tab console |
 
 ---
