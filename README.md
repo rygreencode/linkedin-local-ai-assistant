@@ -206,14 +206,9 @@ A single bubble carries every shortcut, with the unread filter's live state:
 ⌥U unread [on] | ⌥N next conversation  ×
 ```
 
-It is anchored to the **main content column**, not the viewport: its left edge
-lines up with the column's left edge and it sits just above the column's top, so
-it stays with the UI on wide windows instead of drifting into the margin. It
-tracks the column on scroll and resize.
-
-If the column starts too close to the top of the window for the bubble to fit
-above it, the bubble moves just inside the column. If no content column resolves
-at all, it falls back to a fixed position near the top-left.
+It is pinned to the left edge of the browser window, near the top
+(`left: 16px, top: 100px`). Fixed positioning, so it stays put as the
+conversation list and thread scroll independently.
 
 Dismiss it with the ×; re-enable under **Show the shortcut reminder bubble** in
 Settings. Like all injected UI it lives in a shadow root, so LinkedIn's CSS
@@ -259,7 +254,7 @@ All settings live in `chrome.storage.local` and are edited on the options page.
 | `autoStartOllama` | on | start the server when you open LinkedIn Messages |
 | `autoStopOllama` | on | stop it when no LinkedIn tab remains |
 | `autoStopGraceMin` | `5` | 1 minute is the practical floor (MV3 workers sleep) |
-| `showShortcutHint` | on | the shortcut bubble, anchored to the content column |
+| `showShortcutHint` | on | the shortcut bubble, pinned to the window's left edge |
 | `debug` | off | logs scraped context and matched selectors to the tab console |
 
 ---
