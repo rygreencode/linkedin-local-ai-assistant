@@ -350,9 +350,17 @@
   function safeContext() {
     try {
       const c = LLA.scrapeContext();
-      return { name: c.recipient.name, headline: c.recipient.headline, messageCount: c.messages.length };
-    } catch {
-      return null;
+      const rows = conversationItems();
+      return {
+        name: c.recipient.name,
+        headline: c.recipient.headline,
+        messageCount: c.messages.length,
+        conversationRows: rows.length,
+        activeRow: rows.findIndex(isActiveConversation),
+        unreadOn: unreadFilterIsOn(findUnreadControl())
+      };
+    } catch (err) {
+      return { error: err.message };
     }
   }
 
@@ -412,8 +420,15 @@
   /* ---------- Conversation navigation ---------- */
 
   function conversationItems() {
-    const { nodes } = LLA.resolveAll('conversationItem');
-    return nodes.filter((el) => el.offsetParent !== null); // visible rows only
+    const { nodes, selector } = LLA.resolveAll('conversationItem');
+    // offsetParent is null for anything inside a position:fixed ancestor even
+    // when it is plainly visible, so measure instead.
+    const visible = nodes.filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.height > 0 && r.width > 0;
+    });
+    LLA.log(`conversation rows: ${visible.length} visible of ${nodes.length} matched by ${selector}`);
+    return visible;
   }
 
   function isActiveConversation(el) {
@@ -435,6 +450,7 @@
     }
 
     const current = items.findIndex(isActiveConversation);
+    LLA.log('active conversation index', current, 'of', items.length);
     // Nothing selected yet: start at the top rather than jumping to the second row.
     const target = current === -1 ? items[0] : items[current + 1];
     if (!target) {
@@ -449,9 +465,9 @@
       return;
     }
 
+    LLA.log('clicking', clickable.tagName, clickable.className, '→', (clickable.textContent || '').trim().slice(0, 40));
     clickable.click();
     target.scrollIntoView({ block: 'nearest' });
-    LLA.log('moved to conversation', current === -1 ? 0 : current + 1, 'of', items.length);
   }
 
   /* ---------- Auto-start the engine when you land in Messages ---------- */
