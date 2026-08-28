@@ -178,13 +178,25 @@ if LinkedIn's markup has moved.
 
 ### Conversation navigation
 
-`Alt + N` (⌥N) selects the next conversation below the active one, for working
-down the inbox without the mouse. It reads the visible conversation rows through
-the tiered selectors, finds the selected one via `aria-current` or LinkedIn's
-`--is-selected` class, and clicks the next.
+`Alt + N` (⌥N) selects the next conversation **below** the active one — the next
+oldest, since LinkedIn sorts most-recent-first — for working down the inbox
+without the mouse.
 
-It **stops at the last conversation** rather than wrapping to the top, and if
-nothing is selected yet it opens the first row rather than the second.
+Finding which row is currently open is the fragile part. Three strategies, in
+order:
+
+1. **The URL.** `/messaging/thread/<id>/` carries the open thread's id; the row
+   whose link points at that id is the active one. Independent of CSS classes,
+   so this survives LinkedIn restyling.
+2. `aria-current` on the row or a descendant.
+3. LinkedIn's `--is-selected` / `active` class names.
+
+If all three miss, it advances from the last row it moved to rather than falling
+back to the top of the list. Without that, a detection failure makes every press
+reopen the newest conversation — which looks like the list scrolling *up*.
+
+It **stops at the last conversation** rather than wrapping, and opens the first
+row if nothing is selected and nothing has been navigated yet.
 
 ### Shortcut reminder
 
@@ -485,10 +497,10 @@ the code only acts under `/messaging`. Call `runTests()`:
 
 | Case | Expected |
 | --- | --- |
-| From a middle row | moves to the row below |
-| From the last row | stops, does not wrap |
-| Nothing selected | opens the first row |
-| From the first row | moves to the second |
+| URL points at a middle row | moves to the row below |
+| URL points at the last row | stops, does not wrap |
+| URL points at the first row | moves to the second |
+| Detection fails, three presses | walks down three rows, does not reopen the top |
 
 The prompt-assembly layer is testable in plain Node, since it touches no DOM:
 

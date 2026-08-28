@@ -8,9 +8,9 @@ pre{background:#eee;padding:10px;margin-top:14px}</style>
 <button id="unread" aria-label="Unread" aria-pressed="false">Unread</button>
 <button id="send" aria-label="Send">Send</button>
 <ul id="convos" style="list-style:none;padding:0;margin:14px 0;width:280px">
-  <li class="msg-conversation-listitem"><a href="#" class="msg-conversation-listitem__link">Alex Rivera</a></li>
-  <li class="msg-conversation-listitem msg-conversation-card--is-selected"><a href="#" class="msg-conversation-listitem__link">Blair Chen</a></li>
-  <li class="msg-conversation-listitem"><a href="#" class="msg-conversation-listitem__link">Casey Wu</a></li>
+  <li class="msg-conversation-listitem"><a href="/messaging/thread/aaa/" class="msg-conversation-listitem__link">Alex Rivera</a></li>
+  <li class="msg-conversation-listitem"><a href="/messaging/thread/bbb/" class="msg-conversation-listitem__link">Blair Chen</a></li>
+  <li class="msg-conversation-listitem"><a href="/messaging/thread/ccc/" class="msg-conversation-listitem__link">Casey Wu</a></li>
 </ul>
 <pre id="out">ready</pre>
 </div>
@@ -57,48 +57,66 @@ document.getElementById('unread').addEventListener('click', function(){
 });
 // --- conversation navigation, mirroring content.js ---
 LLA.resolveAll = function (key) {
-  const tiers = { conversationItem: ['li.msg-conversation-listitem','ul.msg-conversations-container__conversations-list > li'] }[key] || [];
-  for (const sel of tiers) { const n = document.querySelectorAll(sel); if (n.length) return { nodes: Array.from(n) }; }
-  return { nodes: [] };
+  const tiers = { conversationItem: ['li.msg-conversation-listitem'] }[key] || [];
+  for (const sel of tiers) { const n = document.querySelectorAll(sel); if (n.length) return { nodes: Array.from(n), selector: sel }; }
+  return { nodes: [], selector: null };
 };
+let CURRENT_PATH = '/messaging/';          // stands in for location.pathname
+let lastNavIndex = null;
+
 function conversationItems() {
-  return LLA.resolveAll('conversationItem').nodes.filter(el => el.offsetParent !== null);
+  return LLA.resolveAll('conversationItem').nodes.filter(el => {
+    const r = el.getBoundingClientRect(); return r.height > 0 && r.width > 0;
+  });
+}
+function activeThreadId(pathname) {
+  const m = (pathname || CURRENT_PATH).match(/\/messaging\/thread\/([^/?#]+)/);
+  return m ? m[1] : null;
+}
+function rowThreadIds(el) {
+  return Array.from(el.querySelectorAll('a[href*="/messaging/thread/"]'))
+    .map(a => activeThreadId(a.getAttribute('href') || '')).filter(Boolean);
 }
 function isActiveConversation(el) {
+  const openId = activeThreadId();
+  if (openId) { const ids = rowThreadIds(el); if (ids.length) return ids.includes(openId); }
   if (el.getAttribute('aria-current')) return true;
   if (el.querySelector('[aria-current]')) return true;
   const classes = [el, el.firstElementChild].filter(Boolean)
     .map(n => (typeof n.className === 'string' ? n.className : '')).join(' ');
   return /is-selected|--active|\bactive\b/.test(classes);
 }
-let lastClicked = null;
 function nextConversation() {
   const items = conversationItems();
   if (!items.length) return 'no rows';
-  const current = items.findIndex(isActiveConversation);
+  let current = items.findIndex(isActiveConversation);
+  if (current === -1 && lastNavIndex !== null && lastNavIndex < items.length) current = lastNavIndex;
   const target = current === -1 ? items[0] : items[current + 1];
   if (!target) return 'at last';
   const clickable = target.querySelector('a, [role="link"], .msg-conversation-listitem__link') || target;
   const label = ((clickable.getAttribute('aria-label')||'')+' '+(clickable.textContent||'')).toLowerCase();
   if (/\bsend\b/.test(label)) return 'refused: send control';
-  lastClicked = clickable.textContent;
-  // emulate LinkedIn moving the selection
-  items.forEach(i => i.classList.remove('msg-conversation-card--is-selected'));
-  target.classList.add('msg-conversation-card--is-selected');
-  return 'moved to ' + lastClicked;
+  lastNavIndex = current === -1 ? 0 : current + 1;
+  return 'moved to ' + clickable.textContent.trim();
 }
 window.runNavTests = function () {
   const r = [];
-  const items = () => document.querySelectorAll('#convos li');
-  const reset = (sel) => { items().forEach(i => i.classList.remove('msg-conversation-card--is-selected'));
-                           if (sel !== null) items()[sel].classList.add('msg-conversation-card--is-selected'); };
-  reset(1);
-  r.push({ case: 'from Blair (index 1)', result: nextConversation() });
-  r.push({ case: 'from Casey (last)', result: nextConversation() });
-  reset(null);
-  r.push({ case: 'nothing selected', result: nextConversation() });
-  reset(0);
-  r.push({ case: 'from Alex (first)', result: nextConversation() });
+  const reset = (path) => { CURRENT_PATH = path; lastNavIndex = null; };
+
+  reset('/messaging/thread/bbb/');
+  r.push({ case: 'URL says Blair (middle)', result: nextConversation() });
+  reset('/messaging/thread/ccc/');
+  r.push({ case: 'URL says Casey (last)', result: nextConversation() });
+  reset('/messaging/thread/aaa/');
+  r.push({ case: 'URL says Alex (first)', result: nextConversation() });
+
+  // The reported bug: detection fails, so every press reopened the top row.
+  reset('/messaging/');
+  const a = nextConversation();
+  const b = nextConversation();
+  const c = nextConversation();
+  r.push({ case: 'detection fails, 3 presses', result: [a, b, c] });
+
   document.getElementById('out').textContent = JSON.stringify(r, null, 2);
   return r;
 };
