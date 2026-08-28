@@ -431,7 +431,25 @@
     return visible;
   }
 
+  /* The open thread's id is in the URL — /messaging/thread/<id>/ — which is far
+     more dependable than LinkedIn's selected-row CSS classes. */
+  function activeThreadId(pathname) {
+    const m = (pathname || location.pathname).match(/\/messaging\/thread\/([^/?#]+)/);
+    return m ? m[1] : null;
+  }
+
+  function rowThreadIds(el) {
+    return Array.from(el.querySelectorAll('a[href*="/messaging/thread/"]'))
+      .map((a) => activeThreadId(a.getAttribute('href') || ''))
+      .filter(Boolean);
+  }
+
   function isActiveConversation(el) {
+    const openId = activeThreadId();
+    if (openId) {
+      const ids = rowThreadIds(el);
+      if (ids.length) return ids.includes(openId);
+    }
     if (el.getAttribute('aria-current')) return true;
     if (el.querySelector('[aria-current]')) return true;
     const classes = [el, el.firstElementChild]
@@ -441,6 +459,8 @@
     return /is-selected|--active|\bactive\b/.test(classes);
   }
 
+  let lastNavIndex = null;
+
   function nextConversation() {
     if (!location.pathname.startsWith('/messaging')) return;
     const items = conversationItems();
@@ -449,8 +469,15 @@
       return;
     }
 
-    const current = items.findIndex(isActiveConversation);
+    let current = items.findIndex(isActiveConversation);
     LLA.log('active conversation index', current, 'of', items.length);
+
+    if (current === -1 && lastNavIndex !== null && lastNavIndex < items.length) {
+      // Detection missed. Advance from where we last moved rather than jumping
+      // back to the top of the list.
+      current = lastNavIndex;
+      LLA.log('detection missed; continuing from last position', current);
+    }
     // Nothing selected yet: start at the top rather than jumping to the second row.
     const target = current === -1 ? items[0] : items[current + 1];
     if (!target) {
@@ -466,6 +493,7 @@
     }
 
     LLA.log('clicking', clickable.tagName, clickable.className, '→', (clickable.textContent || '').trim().slice(0, 40));
+    lastNavIndex = current === -1 ? 0 : current + 1;
     clickable.click();
     target.scrollIntoView({ block: 'nearest' });
   }
