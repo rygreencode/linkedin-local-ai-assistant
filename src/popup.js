@@ -86,7 +86,12 @@ async function checkDom() {
     const info = document.createElement('div');
     info.className = 'tier';
     info.style.marginTop = '8px';
-    info.textContent = `Active thread: ${res.context.name || '(no name)'} — ${res.context.messageCount} message(s) scraped.`;
+    const ctx = res.context;
+    const active = ctx.activeRow === -1 ? 'none detected' : `#${ctx.activeRow}`;
+    info.innerHTML =
+      `Thread: ${ctx.name || '(no name)'} — ${ctx.messageCount} message(s).<br>` +
+      `Conversation rows: <b>${ctx.conversationRows}</b>, active row: <b>${active}</b>.<br>` +
+      `Unread filter: ${ctx.unreadOn ? 'on' : 'off'}.`;
     $('diag').appendChild(info);
   }
 }

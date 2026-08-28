@@ -59,8 +59,10 @@ globalThis.LLA_SELECTOR_TIERS = {
   ],
   conversationItem: [
     'li.msg-conversation-listitem',
+    'li.msg-conversations-container__convo-item',
     'ul.msg-conversations-container__conversations-list > li',
-    'div[role="main"] ul li.msg-conversation-listitem'
+    '.msg-conversations-container__conversations-list li',
+    'div[role="main"] ul li'
   ],
   unreadFilter: [
     'button[aria-label="Unread"]',
