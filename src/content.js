@@ -51,7 +51,7 @@
         <button class="draft">Draft reply</button>
         <button class="regen ghost" disabled>Regenerate</button>
         <button class="link ghost" title="Insert your booking link at the cursor">Add meeting link</button>
-        <span class="status"><kbd>⌥G</kbd> draft &nbsp;<kbd>⌥R</kbd> regenerate</span>
+        <span class="status"></span>
         <button class="swap ghost" style="display:none"></button>
       </div>`;
 
@@ -80,7 +80,7 @@
   function resetStatus() {
     if (!ui) return;
     ui.status.classList.remove('err');
-    ui.status.innerHTML = '<kbd>⌥G</kbd> draft &nbsp;<kbd>⌥R</kbd> regenerate';
+    ui.status.textContent = '';
   }
 
   LLA.toast = function (msg, ms = 3000) {
@@ -172,8 +172,6 @@
           .x:hover { opacity:1; }
         </style>
         <div class="chip">
-          <span><kbd>⌥G</kbd> draft</span><span class="sep">|</span>
-          <span><kbd>⌥R</kbd> regen</span><span class="sep">|</span>
           <span><kbd>⌥U</kbd> unread <span class="state off">off</span></span>
           <span class="x" title="Hide (re-enable in Settings)">&times;</span>
         </div>`;
@@ -452,16 +450,6 @@
       e.preventDefault();
       e.stopPropagation();
       toggleUnreadFilter();
-      return;
-    }
-
-    if (!e.altKey || e.ctrlKey || e.metaKey) return;
-    if (key === 'g' || e.code === 'KeyG') {
-      e.preventDefault();
-      run(false);
-    } else if (key === 'r' || e.code === 'KeyR') {
-      e.preventDefault();
-      run(true);
     }
   }
 

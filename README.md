@@ -152,11 +152,14 @@ Open a LinkedIn message thread. A bar appears above the composer.
 
 | Control | Hotkey | Effect |
 | --- | --- | --- |
-| **Draft reply** | `Alt + G` | scrape the thread, generate, **replace** composer contents |
-| **Regenerate** | `Alt + R` | different angle, different opening |
+| **Draft reply** | — | scrape the thread, generate, **replace** composer contents |
+| **Regenerate** | — | different angle, different opening (enabled after the first draft) |
 | **Add meeting link** | — | **append** your booking link at the cursor, draft untouched |
 | *(unread filter)* | `Alt + U` | toggle LinkedIn's Unread filter on and off |
 | *(watchdog)* | — | appears only when generation is slow: retry on the lighter model |
+
+`Alt + U` is the only keyboard shortcut. Drafting and regenerating are
+button-only.
 
 Drafting replaces; the meeting link appends, inserting a single separating space
 only when one is needed.
@@ -175,10 +178,10 @@ if LinkedIn's markup has moved.
 ### Shortcut reminder
 
 A small chip hovers directly above LinkedIn's Unread control, with an arrow
-pointing at it, showing the shortcuts and the live state of the filter:
+pointing at it, showing the shortcut and the live state of the filter:
 
 ```
-⌥G draft | ⌥R regen | ⌥U unread [on]  ×
+⌥U unread [on]  ×
 ```
 
 It tracks the control on scroll and resize, clamps itself to the viewport, and
