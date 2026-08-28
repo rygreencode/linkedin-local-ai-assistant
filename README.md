@@ -155,10 +155,35 @@ Open a LinkedIn message thread. A bar appears above the composer.
 | **Draft reply** | `Alt + G` | scrape the thread, generate, **replace** composer contents |
 | **Regenerate** | `Alt + R` | different angle, different opening |
 | **Add meeting link** | — | **append** your booking link at the cursor, draft untouched |
+| *(unread filter)* | `Alt + U` | toggle LinkedIn's Unread filter on and off |
 | *(watchdog)* | — | appears only when generation is slow: retry on the lighter model |
 
 Drafting replaces; the meeting link appends, inserting a single separating space
 only when one is needed.
+
+### Unread triage
+
+`Alt + U` (⌥U) flips LinkedIn's own **Unread** filter on and off, for mouse-free
+inbox triage. It resolves the filter control through the same tiered selector
+system as everything else, and falls back to driving `?filter=unread` on the URL
+if LinkedIn's markup has moved.
+
+> ⌘U was the original request, but Chrome binds it to View Source on macOS and
+> pages cannot reliably cancel browser accelerators. ⌥U is used instead, matching
+> ⌥G and ⌥R.
+
+### Shortcut reminder
+
+A small chip sits in the bottom-left of LinkedIn Messages showing the shortcuts
+and the live state of the unread filter:
+
+```
+⌥G draft | ⌥R regen | ⌥U unread [on]  ×
+```
+
+Dismiss it with the ×; re-enable under **Show the shortcut reminder chip** in
+Settings. Like all injected UI it lives in a shadow root, so LinkedIn's CSS
+cannot affect it and vice versa.
 
 ---
 
@@ -200,6 +225,7 @@ All settings live in `chrome.storage.local` and are edited on the options page.
 | `autoStartOllama` | on | start the server when you open LinkedIn Messages |
 | `autoStopOllama` | on | stop it when no LinkedIn tab remains |
 | `autoStopGraceMin` | `5` | 1 minute is the practical floor (MV3 workers sleep) |
+| `showShortcutHint` | on | the reminder chip in LinkedIn Messages |
 | `debug` | off | logs scraped context and matched selectors to the tab console |
 
 ---
@@ -247,6 +273,11 @@ top of `src/content.js`:
 Text is placed via `execCommand('insertText')` — which fires the `input` events
 LinkedIn's editor listens for — and stops there. Every message requires a
 deliberate human action.
+
+The one place the extension does click a LinkedIn control is the unread filter.
+That path checks the resolved element's label first and refuses outright if it
+looks like a send control, so a mis-bound selector override cannot turn a filter
+toggle into a send.
 
 If you extend this code, keep it that way. Automated sending is the difference
 between a drafting aid and a spam cannon, and it is also what gets LinkedIn
@@ -314,6 +345,7 @@ native/
   install_host.py      registers the host, computes the extension ID
 test/
   composer-fixture.html  contenteditable harness for insertion behaviour
+  messaging/index.html   unread-filter toggle harness (must be served at /messaging/)
 icons/                 16/32/48/128, generated from a 2048px source
 ```
 
@@ -415,6 +447,17 @@ the console. Covered cases:
 | Draft, then link | single separating space |
 | Draft already ends in whitespace | no double space |
 | Draft twice | second replaces the first, no append |
+
+`test/messaging/index.html` covers the unread-filter toggle. Serve the `test`
+directory as above and open `http://localhost:8777/messaging/` — the path matters,
+the code only acts under `/messaging`. Call `runTests()`:
+
+| Case | Expected |
+| --- | --- |
+| Finds the filter control | resolves via the tiered selectors |
+| Toggle on / off | clicks the control, state reads back correctly |
+| Mis-bound to a send control | **refused**, nothing clicked |
+| No control in the DOM | falls back to `?filter=unread` |
 
 The prompt-assembly layer is testable in plain Node, since it touches no DOM:
 
