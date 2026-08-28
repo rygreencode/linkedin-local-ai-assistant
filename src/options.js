@@ -14,6 +14,7 @@ async function load() {
   $('autoStartOllama').checked = Boolean(settings.autoStartOllama);
   $('autoStopOllama').checked = Boolean(settings.autoStopOllama);
   $('showShortcutHint').checked = Boolean(settings.showShortcutHint);
+  $('showNavHint').checked = Boolean(settings.showNavHint);
   renderOverrides();
 }
 
@@ -32,6 +33,7 @@ async function save() {
   settings.autoStartOllama = $('autoStartOllama').checked;
   settings.autoStopOllama = $('autoStopOllama').checked;
   settings.showShortcutHint = $('showShortcutHint').checked;
+  settings.showNavHint = $('showNavHint').checked;
   await chrome.storage.local.set({ settings });
   $('saved').classList.add('show');
   setTimeout(() => $('saved').classList.remove('show'), 1500);
