@@ -174,12 +174,17 @@ if LinkedIn's markup has moved.
 
 ### Shortcut reminder
 
-A small chip sits in the bottom-left of LinkedIn Messages showing the shortcuts
-and the live state of the unread filter:
+A small chip hovers directly above LinkedIn's Unread control, with an arrow
+pointing at it, showing the shortcuts and the live state of the filter:
 
 ```
 ⌥G draft | ⌥R regen | ⌥U unread [on]  ×
 ```
+
+It tracks the control on scroll and resize, clamps itself to the viewport, and
+flips to sit *below* the control when there is not enough room above. If the
+Unread control cannot be found at all it parks in the bottom-left corner rather
+than disappearing.
 
 Dismiss it with the ×; re-enable under **Show the shortcut reminder chip** in
 Settings. Like all injected UI it lives in a shadow root, so LinkedIn's CSS
