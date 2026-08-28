@@ -17,6 +17,7 @@
   // Belt and braces: if the worlds turned out not to be shared, the old UI is
   // still in the DOM and unreachable from here.
   document.getElementById('lla-host')?.remove();
+  document.getElementById('lla-hint')?.remove();
 
   const LLA = (globalThis.LLA = globalThis.LLA || {});
   let ui = null;
@@ -94,6 +95,54 @@
     const host = buildUI();
     anchor.el.parentElement.insertBefore(host, anchor.el);
     LLA.log('UI mounted above', anchor.selector);
+  }
+
+  /* ---------- Shortcut hint overlay ---------- */
+
+  let hint = null;
+
+  function renderHint() {
+    if (!LLA.settings.showShortcutHint || !location.pathname.startsWith('/messaging')) {
+      hint?.host.remove();
+      hint = null;
+      return;
+    }
+    if (!hint || !hint.host.isConnected) {
+      const host = document.createElement('div');
+      host.id = 'lla-hint';
+      const shadow = host.attachShadow({ mode: 'open' });
+      shadow.innerHTML = `
+        <style>
+          .chip { position:fixed; left:16px; bottom:16px; z-index:9999;
+                  display:flex; align-items:center; gap:10px;
+                  background:rgba(17,17,17,.88); color:#fff; backdrop-filter:blur(6px);
+                  font:12px/1.4 -apple-system, system-ui, "Segoe UI", sans-serif;
+                  padding:7px 10px; border-radius:16px; box-shadow:0 2px 10px rgba(0,0,0,.25); }
+          kbd { font:11px/1 ui-monospace, monospace; background:rgba(255,255,255,.16);
+                border-radius:3px; padding:2px 5px; }
+          .sep { opacity:.35; }
+          .state { font-weight:600; padding:2px 7px; border-radius:9px; }
+          .on  { background:#14632c; }
+          .off { background:rgba(255,255,255,.16); }
+          .x { cursor:pointer; opacity:.55; padding:0 2px; font-size:14px; }
+          .x:hover { opacity:1; }
+        </style>
+        <div class="chip">
+          <span><kbd>⌥G</kbd> draft</span><span class="sep">|</span>
+          <span><kbd>⌥R</kbd> regen</span><span class="sep">|</span>
+          <span><kbd>⌥U</kbd> unread <span class="state off">off</span></span>
+          <span class="x" title="Hide (re-enable in Settings)">&times;</span>
+        </div>`;
+      shadow.querySelector('.x').addEventListener('click', () => {
+        LLA.saveSettings({ showShortcutHint: false }).then(renderHint);
+      });
+      document.documentElement.appendChild(host);
+      hint = { host, shadow };
+    }
+    const on = unreadFilterIsOn(findUnreadControl());
+    const badge = hint.shadow.querySelector('.state');
+    badge.textContent = on ? 'on' : 'off';
+    badge.className = 'state ' + (on ? 'on' : 'off');
   }
 
   /* ---------- Draft insertion (no send, ever) ---------- */
@@ -265,6 +314,59 @@
     }
   }
 
+  /* ---------- Unread filter toggle ----------
+     LinkedIn's own filter control. CSS alone cannot match on text, so fall back
+     to scanning for a control literally labelled "Unread", then to the URL. */
+
+  function findUnreadControl() {
+    const hit = LLA.resolve('unreadFilter');
+    if (hit) return hit.el;
+    const candidates = document.querySelectorAll(
+      'button, [role="radio"], [role="menuitem"], [role="tab"]'
+    );
+    for (const el of candidates) {
+      const label = (el.getAttribute('aria-label') || el.textContent || '').trim();
+      if (/^unread$/i.test(label)) return el;
+    }
+    return null;
+  }
+
+  function unreadFilterIsOn(el) {
+    if (el) {
+      const pressed = el.getAttribute('aria-pressed') || el.getAttribute('aria-checked') || el.getAttribute('aria-selected');
+      if (pressed !== null) return pressed === 'true';
+      if (/selected|active/.test(el.className || '')) return true;
+    }
+    return /[?&]filter=unread/.test(location.search);
+  }
+
+  function toggleUnreadFilter() {
+    if (!location.pathname.startsWith('/messaging')) return;
+    const el = findUnreadControl();
+
+    // Never let this path touch a send control, whatever the DOM looks like.
+    if (el) {
+      const label = ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '')).toLowerCase();
+      if (label.includes('send')) {
+        LLA.log('refusing to click a control labelled "send"', el);
+        return;
+      }
+    }
+
+    const wasOn = unreadFilterIsOn(el);
+    if (el) {
+      el.click();
+      LLA.log('toggled unread filter via control', el);
+    } else {
+      // No control found — drive it off the URL instead.
+      const url = wasOn ? '/messaging/' : '/messaging/?filter=unread';
+      LLA.log('no unread control found; navigating to', url);
+      location.assign(url);
+    }
+    // Let LinkedIn re-render before reading the new state back.
+    setTimeout(() => renderHint(), 400);
+  }
+
   /* ---------- Auto-start the engine when you land in Messages ---------- */
 
   let autoStartTried = false;
@@ -292,8 +394,18 @@
   /* ---------- Hotkeys ---------- */
 
   function onHotkey(e) {
-    if (!e.altKey || e.ctrlKey || e.metaKey) return;
     const key = (e.key || '').toLowerCase();
+
+    // Unread toggle. On macOS Alt+letter emits a dead key rather than the
+    // letter itself, hence the e.code check alongside e.key.
+    if ((key === 'u' || e.code === 'KeyU') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleUnreadFilter();
+      return;
+    }
+
+    if (!e.altKey || e.ctrlKey || e.metaKey) return;
     if (key === 'g' || e.code === 'KeyG') {
       e.preventDefault();
       run(false);
@@ -312,6 +424,7 @@
     clearTimeout(pending);
     pending = setTimeout(() => {
       mount();
+      renderHint();
       maybeAutoStart();
     }, 300);
   });
@@ -331,11 +444,14 @@
       // context already dead; the listener dies with it
     }
     document.getElementById('lla-host')?.remove();
+    document.getElementById('lla-hint')?.remove();
     ui = null;
+    hint = null;
   };
 
   LLA.loadSettings().then(() => {
     mount();
+    renderHint();
     maybeAutoStart();
     observer.observe(document.body, { childList: true, subtree: true });
     chrome.storage.onChanged.addListener(onStorageChanged);

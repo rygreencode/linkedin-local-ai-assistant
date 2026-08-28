@@ -1,0 +1,72 @@
+<!doctype html><meta charset="utf-8"><title>unread filter fixture</title>
+<style>body{font:14px system-ui;padding:20px}
+button{font:inherit;padding:4px 12px;border-radius:14px;border:1px solid #999;background:#fff;cursor:pointer}
+button[aria-pressed="true"]{background:#0a66c2;color:#fff}
+pre{background:#eee;padding:10px;margin-top:14px}</style>
+<h3>Fake LinkedIn conversation filters</h3>
+<button id="unread" aria-label="Unread" aria-pressed="false">Unread</button>
+<button id="send" aria-label="Send">Send</button>
+<pre id="out">ready</pre>
+<script>
+// Mirrors the unread-filter logic from content.js
+const LLA = { settings: { selectorOverrides: {} }, log(){}, resolve(key){
+  const tiers = { unreadFilter: ['button[aria-label="Unread"]','button[aria-label*="Unread" i]','.msg-conversations-container__filters button[role="radio"]'] }[key] || [];
+  for (const s of tiers) { const el = document.querySelector(s); if (el) return { el, selector: s }; }
+  return null;
+}};
+function findUnreadControl() {
+  const hit = LLA.resolve('unreadFilter');
+  if (hit) return hit.el;
+  for (const el of document.querySelectorAll('button,[role="radio"],[role="menuitem"],[role="tab"]')) {
+    const label = (el.getAttribute('aria-label') || el.textContent || '').trim();
+    if (/^unread$/i.test(label)) return el;
+  }
+  return null;
+}
+function unreadFilterIsOn(el) {
+  if (el) {
+    const p = el.getAttribute('aria-pressed') || el.getAttribute('aria-checked') || el.getAttribute('aria-selected');
+    if (p !== null) return p === 'true';
+    if (/selected|active/.test(el.className || '')) return true;
+  }
+  return /[?&]filter=unread/.test(location.search);
+}
+let navigatedTo = null;
+function toggleUnreadFilter(fakeNav) {
+  if (!location.pathname.startsWith('/messaging')) return 'wrong path';
+  const el = findUnreadControl();
+  if (el) {
+    const label = ((el.getAttribute('aria-label')||'')+' '+(el.textContent||'')).toLowerCase();
+    if (label.includes('send')) return 'refused: send control';
+  }
+  const wasOn = unreadFilterIsOn(el);
+  if (el) { el.click(); return 'clicked'; }
+  navigatedTo = wasOn ? '/messaging/' : '/messaging/?filter=unread';
+  return 'navigate:' + navigatedTo;
+}
+// The real page toggles aria-pressed itself; emulate LinkedIn doing so.
+document.getElementById('unread').addEventListener('click', function(){
+  this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+});
+window.runTests = function () {
+  const r = [];
+  const btn = document.getElementById('unread');
+  btn.setAttribute('aria-pressed','false');
+  r.push({ case:'finds the control', found: findUnreadControl()?.id });
+  r.push({ case:'initial state', on: unreadFilterIsOn(findUnreadControl()) });
+  r.push({ case:'toggle on', action: toggleUnreadFilter(), on: unreadFilterIsOn(findUnreadControl()) });
+  r.push({ case:'toggle off', action: toggleUnreadFilter(), on: unreadFilterIsOn(findUnreadControl()) });
+  // send-guard: a control that MATCHES the unread selector but is really a
+  // send button — the realistic failure mode of a mis-bound element picker.
+  let clicked = false;
+  btn.addEventListener('click', () => { clicked = true; }, { once: true });
+  btn.textContent = 'Send message';
+  r.push({ case:'send guard', action: toggleUnreadFilter(), clickedSend: clicked });
+  btn.textContent = 'Unread';
+  // URL fallback: no control at all
+  btn.remove(); document.getElementById('send').remove();
+  r.push({ case:'url fallback', found: findUnreadControl(), action: toggleUnreadFilter() });
+  document.getElementById('out').textContent = JSON.stringify(r, null, 2);
+  return r;
+};
+</script>

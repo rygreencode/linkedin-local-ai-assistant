@@ -14,6 +14,7 @@ globalThis.LLA_DEFAULT_SETTINGS = {
   guidelines: 'Keep replies under 3 sentences. Warm but direct. Never invent facts about the recipient.',
   styleSamples: [],
   selectorOverrides: {},
+  showShortcutHint: true,
   autoStartOllama: true,
   autoStopOllama: true,
   autoStopGraceMin: 5,
@@ -50,6 +51,11 @@ globalThis.LLA_SELECTOR_TIERS = {
     'p.msg-entity-lockup__entity-info',
     'div.msg-title-bar p'
   ],
+  unreadFilter: [
+    'button[aria-label="Unread"]',
+    'button[aria-label*="Unread" i]',
+    '.msg-conversations-container__filters button[role="radio"]'
+  ],
   formAnchor: [
     'form.msg-form',
     'div.msg-form',
@@ -63,5 +69,6 @@ globalThis.LLA_SELECTOR_LABELS = {
   messageNode: 'Message bubble',
   headerName: 'Recipient name',
   headerSubtitle: 'Recipient headline',
-  formAnchor: 'Compose box (UI anchor)'
+  formAnchor: 'Compose box (UI anchor)',
+  unreadFilter: 'Unread filter'
 };
