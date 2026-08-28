@@ -18,6 +18,7 @@
   // still in the DOM and unreachable from here.
   document.getElementById('lla-host')?.remove();
   document.getElementById('lla-hint')?.remove();
+  document.getElementById('lla-navhint')?.remove();
 
   const LLA = (globalThis.LLA = globalThis.LLA || {});
   let ui = null;
@@ -191,6 +192,45 @@
     positionHint();
     // The first pass can measure a pre-reflow layout; settle it on the next frame.
     requestAnimationFrame(positionHint);
+  }
+
+  /* Second bubble, parked on the left near the top, for the navigation key. */
+
+  let navHint = null;
+
+  function renderNavHint() {
+    if (!LLA.settings.showNavHint || !location.pathname.startsWith('/messaging')) {
+      navHint?.host.remove();
+      navHint = null;
+      return;
+    }
+    if (navHint?.host.isConnected) return;
+
+    const host = document.createElement('div');
+    host.id = 'lla-navhint';
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `
+      <style>
+        .chip { position:fixed; left:16px; top:100px; z-index:9999;
+                display:flex; align-items:center; gap:8px;
+                background:rgba(17,17,17,.92); color:#fff; backdrop-filter:blur(6px);
+                font:12px/1.4 -apple-system, system-ui, "Segoe UI", sans-serif;
+                padding:7px 10px; border-radius:16px; box-shadow:0 2px 10px rgba(0,0,0,.25);
+                white-space:nowrap; }
+        kbd { font:11px/1 ui-monospace, monospace; background:rgba(255,255,255,.16);
+              border-radius:3px; padding:2px 5px; }
+        .x { cursor:pointer; opacity:.55; padding:0 2px; font-size:14px; }
+        .x:hover { opacity:1; }
+      </style>
+      <div class="chip">
+        <span><kbd>⌥N</kbd> next conversation</span>
+        <span class="x" title="Hide (re-enable in Settings)">&times;</span>
+      </div>`;
+    shadow.querySelector('.x').addEventListener('click', () => {
+      LLA.saveSettings({ showNavHint: false }).then(renderNavHint);
+    });
+    document.documentElement.appendChild(host);
+    navHint = { host, shadow };
   }
 
   /* ---------- Draft insertion (no send, ever) ---------- */
@@ -415,6 +455,51 @@
     setTimeout(() => renderHint(), 400);
   }
 
+  /* ---------- Conversation navigation ---------- */
+
+  function conversationItems() {
+    const { nodes } = LLA.resolveAll('conversationItem');
+    return nodes.filter((el) => el.offsetParent !== null); // visible rows only
+  }
+
+  function isActiveConversation(el) {
+    if (el.getAttribute('aria-current')) return true;
+    if (el.querySelector('[aria-current]')) return true;
+    const classes = [el, el.firstElementChild]
+      .filter(Boolean)
+      .map((n) => (typeof n.className === 'string' ? n.className : ''))
+      .join(' ');
+    return /is-selected|--active|\bactive\b/.test(classes);
+  }
+
+  function nextConversation() {
+    if (!location.pathname.startsWith('/messaging')) return;
+    const items = conversationItems();
+    if (!items.length) {
+      LLA.log('no conversation rows found — rebind "Conversation list item" in the popup');
+      return;
+    }
+
+    const current = items.findIndex(isActiveConversation);
+    // Nothing selected yet: start at the top rather than jumping to the second row.
+    const target = current === -1 ? items[0] : items[current + 1];
+    if (!target) {
+      LLA.log('already on the last conversation');
+      return;
+    }
+
+    const clickable = target.querySelector('a, [role="link"], .msg-conversation-listitem__link') || target;
+    const label = ((clickable.getAttribute('aria-label') || '') + ' ' + (clickable.textContent || '')).toLowerCase();
+    if (/\bsend\b/.test(label)) {
+      LLA.log('refusing to click a control labelled "send"', clickable);
+      return;
+    }
+
+    clickable.click();
+    target.scrollIntoView({ block: 'nearest' });
+    LLA.log('moved to conversation', current === -1 ? 0 : current + 1, 'of', items.length);
+  }
+
   /* ---------- Auto-start the engine when you land in Messages ---------- */
 
   let autoStartTried = false;
@@ -450,6 +535,13 @@
       e.preventDefault();
       e.stopPropagation();
       toggleUnreadFilter();
+      return;
+    }
+
+    if ((key === 'n' || e.code === 'KeyN') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      nextConversation();
     }
   }
 
@@ -463,6 +555,7 @@
     pending = setTimeout(() => {
       mount();
       renderHint();
+      renderNavHint();
       maybeAutoStart();
     }, 300);
   });
@@ -483,15 +576,18 @@
     }
     document.getElementById('lla-host')?.remove();
     document.getElementById('lla-hint')?.remove();
+    document.getElementById('lla-navhint')?.remove();
     window.removeEventListener('scroll', positionHint, { capture: true });
     window.removeEventListener('resize', positionHint);
     ui = null;
     hint = null;
+    navHint = null;
   };
 
   LLA.loadSettings().then(() => {
     mount();
     renderHint();
+    renderNavHint();
     maybeAutoStart();
     observer.observe(document.body, { childList: true, subtree: true });
     chrome.storage.onChanged.addListener(onStorageChanged);

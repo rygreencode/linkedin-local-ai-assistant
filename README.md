@@ -156,10 +156,11 @@ Open a LinkedIn message thread. A bar appears above the composer.
 | **Regenerate** | — | different angle, different opening (enabled after the first draft) |
 | **Add meeting link** | — | **append** your booking link at the cursor, draft untouched |
 | *(unread filter)* | `Alt + U` | toggle LinkedIn's Unread filter on and off |
+| *(next conversation)* | `Alt + N` | move to the next conversation below the active one |
 | *(watchdog)* | — | appears only when generation is slow: retry on the lighter model |
 
-`Alt + U` is the only keyboard shortcut. Drafting and regenerating are
-button-only.
+`Alt + U` and `Alt + N` are the only keyboard shortcuts. Drafting and
+regenerating are button-only.
 
 Drafting replaces; the meeting link appends, inserting a single separating space
 only when one is needed.
@@ -175,6 +176,16 @@ if LinkedIn's markup has moved.
 > pages cannot reliably cancel browser accelerators. ⌥U is used instead, matching
 > ⌥G and ⌥R.
 
+### Conversation navigation
+
+`Alt + N` (⌥N) selects the next conversation below the active one, for working
+down the inbox without the mouse. It reads the visible conversation rows through
+the tiered selectors, finds the selected one via `aria-current` or LinkedIn's
+`--is-selected` class, and clicks the next.
+
+It **stops at the last conversation** rather than wrapping to the top, and if
+nothing is selected yet it opens the first row rather than the second.
+
 ### Shortcut reminder
 
 A small chip hovers directly above LinkedIn's Unread control, with an arrow
@@ -189,9 +200,17 @@ flips to sit *below* the control when there is not enough room above. If the
 Unread control cannot be found at all it parks in the bottom-left corner rather
 than disappearing.
 
-Dismiss it with the ×; re-enable under **Show the shortcut reminder chip** in
-Settings. Like all injected UI it lives in a shadow root, so LinkedIn's CSS
-cannot affect it and vice versa.
+A second bubble sits on the left near the top of the window for the navigation
+key:
+
+```
+⌥N next conversation  ×
+```
+
+Dismiss either with its ×; re-enable them under **Show the shortcut reminder
+chip** and **Show the ⌥N next-conversation bubble** in Settings. Like all
+injected UI they live in shadow roots, so LinkedIn's CSS cannot affect them and
+vice versa.
 
 ---
 
@@ -233,7 +252,8 @@ All settings live in `chrome.storage.local` and are edited on the options page.
 | `autoStartOllama` | on | start the server when you open LinkedIn Messages |
 | `autoStopOllama` | on | stop it when no LinkedIn tab remains |
 | `autoStopGraceMin` | `5` | 1 minute is the practical floor (MV3 workers sleep) |
-| `showShortcutHint` | on | the reminder chip in LinkedIn Messages |
+| `showShortcutHint` | on | the unread chip, anchored above the filter control |
+| `showNavHint` | on | the ⌥N bubble, top-left of the window |
 | `debug` | off | logs scraped context and matched selectors to the tab console |
 
 ---
@@ -282,10 +302,10 @@ Text is placed via `execCommand('insertText')` — which fires the `input` event
 LinkedIn's editor listens for — and stops there. Every message requires a
 deliberate human action.
 
-The one place the extension does click a LinkedIn control is the unread filter.
-That path checks the resolved element's label first and refuses outright if it
-looks like a send control, so a mis-bound selector override cannot turn a filter
-toggle into a send.
+The two places the extension clicks a LinkedIn control are the unread filter and
+the conversation list. Both check the resolved element's label first and refuse
+outright if it looks like a send control, so a mis-bound selector override cannot
+turn navigation into a send.
 
 If you extend this code, keep it that way. Automated sending is the difference
 between a drafting aid and a spam cannon, and it is also what gets LinkedIn
@@ -466,6 +486,15 @@ the code only acts under `/messaging`. Call `runTests()`:
 | Toggle on / off | clicks the control, state reads back correctly |
 | Mis-bound to a send control | **refused**, nothing clicked |
 | No control in the DOM | falls back to `?filter=unread` |
+
+`runNavTests()` on the same page covers `Alt + N`:
+
+| Case | Expected |
+| --- | --- |
+| From a middle row | moves to the row below |
+| From the last row | stops, does not wrap |
+| Nothing selected | opens the first row |
+| From the first row | moves to the second |
 
 The prompt-assembly layer is testable in plain Node, since it touches no DOM:
 

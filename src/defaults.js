@@ -15,6 +15,7 @@ globalThis.LLA_DEFAULT_SETTINGS = {
   styleSamples: [],
   selectorOverrides: {},
   showShortcutHint: true,
+  showNavHint: true,
   autoStartOllama: true,
   autoStopOllama: true,
   autoStopGraceMin: 5,
@@ -51,6 +52,11 @@ globalThis.LLA_SELECTOR_TIERS = {
     'p.msg-entity-lockup__entity-info',
     'div.msg-title-bar p'
   ],
+  conversationItem: [
+    'li.msg-conversation-listitem',
+    'ul.msg-conversations-container__conversations-list > li',
+    'div[role="main"] ul li.msg-conversation-listitem'
+  ],
   unreadFilter: [
     'button[aria-label="Unread"]',
     'button[aria-label*="Unread" i]',
@@ -70,5 +76,6 @@ globalThis.LLA_SELECTOR_LABELS = {
   headerName: 'Recipient name',
   headerSubtitle: 'Recipient headline',
   formAnchor: 'Compose box (UI anchor)',
-  unreadFilter: 'Unread filter'
+  unreadFilter: 'Unread filter',
+  conversationItem: 'Conversation list item'
 };
