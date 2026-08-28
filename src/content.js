@@ -101,6 +101,43 @@
 
   let hint = null;
 
+  function positionHint() {
+    if (!hint?.host.isConnected) return;
+    const chip = hint.shadow.querySelector('.chip');
+    const target = findUnreadControl();
+
+    if (!target) {
+      // Nothing to anchor to — park it bottom-left rather than lose it.
+      chip.classList.add('floating');
+      chip.style.left = '16px';
+      chip.style.top = '';
+      chip.style.bottom = '16px';
+      chip.style.setProperty('--arrow', '-99px');
+      return;
+    }
+
+    const r = target.getBoundingClientRect();
+    const box = chip.getBoundingClientRect();
+    const gap = 10;
+
+    // Centre on the control, then clamp so it never leaves the viewport.
+    let left = r.left + r.width / 2 - box.width / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - box.width - 8));
+    let top = r.top - box.height - gap;
+
+    // No room above (control near the top of the window) — sit below instead.
+    const below = top < 8;
+    if (below) top = r.bottom + gap;
+
+    chip.classList.remove('floating');
+    chip.classList.toggle('below', below);
+    chip.style.left = `${Math.round(left)}px`;
+    chip.style.top = `${Math.round(top)}px`;
+    chip.style.bottom = '';
+    // Point the arrow at the control's centre, in chip-local coordinates.
+    chip.style.setProperty('--arrow', `${Math.round(r.left + r.width / 2 - left)}px`);
+  }
+
   function renderHint() {
     if (!LLA.settings.showShortcutHint || !location.pathname.startsWith('/messaging')) {
       hint?.host.remove();
@@ -113,11 +150,18 @@
       const shadow = host.attachShadow({ mode: 'open' });
       shadow.innerHTML = `
         <style>
-          .chip { position:fixed; left:16px; bottom:16px; z-index:9999;
+          .chip { position:fixed; z-index:9999; left:-9999px; top:0;
                   display:flex; align-items:center; gap:10px;
-                  background:rgba(17,17,17,.88); color:#fff; backdrop-filter:blur(6px);
+                  background:rgba(17,17,17,.92); color:#fff; backdrop-filter:blur(6px);
                   font:12px/1.4 -apple-system, system-ui, "Segoe UI", sans-serif;
-                  padding:7px 10px; border-radius:16px; box-shadow:0 2px 10px rgba(0,0,0,.25); }
+                  padding:7px 10px; border-radius:16px; box-shadow:0 2px 10px rgba(0,0,0,.25);
+                  white-space:nowrap; }
+          /* Arrow pointing down at the unread control (or up, when flipped). */
+          .chip::after { content:""; position:absolute; left:var(--arrow, 50%);
+                         margin-left:-5px; border:5px solid transparent; }
+          .chip:not(.below):not(.floating)::after { top:100%; border-top-color:rgba(17,17,17,.92); }
+          .chip.below::after { bottom:100%; border-bottom-color:rgba(17,17,17,.92); }
+          .chip.floating::after { display:none; }
           kbd { font:11px/1 ui-monospace, monospace; background:rgba(255,255,255,.16);
                 border-radius:3px; padding:2px 5px; }
           .sep { opacity:.35; }
@@ -138,11 +182,17 @@
       });
       document.documentElement.appendChild(host);
       hint = { host, shadow };
+      window.addEventListener('scroll', positionHint, { passive: true, capture: true });
+      window.addEventListener('resize', positionHint, { passive: true });
     }
+
     const on = unreadFilterIsOn(findUnreadControl());
     const badge = hint.shadow.querySelector('.state');
     badge.textContent = on ? 'on' : 'off';
     badge.className = 'state ' + (on ? 'on' : 'off');
+    positionHint();
+    // The first pass can measure a pre-reflow layout; settle it on the next frame.
+    requestAnimationFrame(positionHint);
   }
 
   /* ---------- Draft insertion (no send, ever) ---------- */
@@ -445,6 +495,8 @@
     }
     document.getElementById('lla-host')?.remove();
     document.getElementById('lla-hint')?.remove();
+    window.removeEventListener('scroll', positionHint, { capture: true });
+    window.removeEventListener('resize', positionHint);
     ui = null;
     hint = null;
   };
