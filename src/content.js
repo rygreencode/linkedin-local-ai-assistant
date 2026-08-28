@@ -98,42 +98,10 @@
   }
 
   /* ---------- Shortcut hint overlay ----------
-     One bubble carrying every shortcut, anchored to the left edge of the main
-     content column (not the viewport) so it stays with the UI on wide windows. */
+     One bubble carrying every shortcut, pinned to the left edge of the browser
+     window near the top. Fixed positioning, so nothing to recompute on scroll. */
 
   let hint = null;
-  let hintListenersAttached = false;
-
-  function positionHint() {
-    if (!hint?.host.isConnected) return;
-    const chip = hint.shadow.querySelector('.chip');
-    const container = LLA.resolve('mainContainer');
-
-    if (!container) {
-      // No content column resolved — fall back to the window's top-left.
-      chip.style.left = '16px';
-      chip.style.top = '100px';
-      return;
-    }
-
-    const r = container.el.getBoundingClientRect();
-    const box = chip.getBoundingClientRect();
-    const gap = 8;
-
-    // Sit just above the column when there is room, otherwise just inside it.
-    let top = r.top - box.height - gap;
-    if (top < 8) top = r.top + gap;
-
-    chip.style.left = `${Math.round(Math.max(8, r.left))}px`;
-    chip.style.top = `${Math.round(top)}px`;
-  }
-
-  function ensureHintListeners() {
-    if (hintListenersAttached) return;
-    hintListenersAttached = true;
-    window.addEventListener('scroll', positionHint, { passive: true, capture: true });
-    window.addEventListener('resize', positionHint, { passive: true });
-  }
 
   function renderHint() {
     if (!LLA.settings.showShortcutHint || !location.pathname.startsWith('/messaging')) {
@@ -148,7 +116,7 @@
       const shadow = host.attachShadow({ mode: 'open' });
       shadow.innerHTML = `
         <style>
-          .chip { position:fixed; left:-9999px; top:0; z-index:9999;
+          .chip { position:fixed; left:16px; top:100px; z-index:9999;
                   display:flex; align-items:center; gap:10px;
                   background:rgba(17,17,17,.92); color:#fff; backdrop-filter:blur(6px);
                   font:12px/1.4 -apple-system, system-ui, "Segoe UI", sans-serif;
@@ -174,17 +142,12 @@
       });
       document.documentElement.appendChild(host);
       hint = { host, shadow };
-      ensureHintListeners();
     }
 
     const on = unreadFilterIsOn(findUnreadControl());
     const badge = hint.shadow.querySelector('.state');
     badge.textContent = on ? 'on' : 'off';
     badge.className = 'state ' + (on ? 'on' : 'off');
-
-    positionHint();
-    // The first pass can measure a pre-reflow layout; settle it next frame.
-    requestAnimationFrame(positionHint);
   }
 
   /* ---------- Draft insertion (no send, ever) ---------- */
@@ -573,9 +536,6 @@
     }
     document.getElementById('lla-host')?.remove();
     document.getElementById('lla-hint')?.remove();
-    window.removeEventListener('scroll', positionHint, { capture: true });
-    window.removeEventListener('resize', positionHint);
-    hintListenersAttached = false;
     ui = null;
     hint = null;
   };
