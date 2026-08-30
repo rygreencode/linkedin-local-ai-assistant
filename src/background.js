@@ -95,9 +95,11 @@ async function ping() {
 
 /* Re-inject into already-open LinkedIn tabs so an extension reload does not
    force the user to reload every tab by hand. */
+const LINKEDIN_TABS = { url: 'https://www.linkedin.com/*' };
+
 async function reinjectOpenTabs() {
   const files = chrome.runtime.getManifest().content_scripts[0].js;
-  const tabs = await chrome.tabs.query({ url: 'https://www.linkedin.com/*' });
+  const tabs = await chrome.tabs.query(LINKEDIN_TABS);
   for (const tab of tabs) {
     try {
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files });
@@ -117,7 +119,7 @@ chrome.runtime.onStartup.addListener(reinjectOpenTabs);
 const IDLE_ALARM = 'lla-idle-shutdown';
 
 async function linkedInTabCount() {
-  const tabs = await chrome.tabs.query({ url: 'https://www.linkedin.com/*' });
+  const tabs = await chrome.tabs.query(LINKEDIN_TABS);
   return tabs.length;
 }
 

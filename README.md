@@ -174,8 +174,7 @@ system as everything else, and falls back to driving `?filter=unread` on the URL
 if LinkedIn's markup has moved.
 
 > ⌘U was the original request, but Chrome binds it to View Source on macOS and
-> pages cannot reliably cancel browser accelerators. ⌥U is used instead, matching
-> ⌥G and ⌥R.
+> pages cannot reliably cancel browser accelerators, so ⌥U is used instead.
 
 ### Conversation navigation
 
