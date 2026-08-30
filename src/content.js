@@ -21,7 +21,6 @@
 
   const LLA = (globalThis.LLA = globalThis.LLA || {});
   let ui = null;
-  let lastContext = null;
   let busy = false;
   let genId = 0;
 
@@ -44,8 +43,6 @@
         button:disabled { opacity:.5; cursor:default; }
         .status { flex:1; color:#666; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .status.err { color:#b3261e; }
-        kbd { font:11px/1 monospace; background:#eee; border:1px solid #ccc;
-              border-radius:3px; padding:1px 4px; color:#555; }
       </style>
       <div class="bar">
         <button class="draft">Draft reply</button>
@@ -91,7 +88,7 @@
   function mount() {
     if (document.getElementById('lla-host')?.isConnected) return;
     const anchor = LLA.resolve('formAnchor');
-    if (!anchor) return;
+    if (!anchor?.el.parentElement) return;
     const host = buildUI();
     anchor.el.parentElement.insertBefore(host, anchor.el);
     LLA.log('UI mounted above', anchor.selector);
@@ -246,7 +243,6 @@
 
     try {
       const ctx = LLA.scrapeContext();
-      lastContext = ctx;
       if (!ctx.messages.length) {
         LLA.log('no messages scraped — drafting from header context only');
       }
@@ -282,7 +278,7 @@
 
   /* ---------- Watchdog swap offer ---------- */
 
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  function onRuntimeMessage(msg, _sender, sendResponse) {
     if (msg?.type === 'lla:slow' && ui) {
       setStatus(`${msg.model} is taking a while…`);
       ui.swapBtn.textContent = `Retry on ${msg.lightModel}`;
@@ -308,7 +304,9 @@
       return false;
     }
     return false;
-  });
+  }
+
+  chrome.runtime.onMessage.addListener(onRuntimeMessage);
 
   function safeContext() {
     try {
@@ -331,6 +329,13 @@
      LinkedIn's own filter control. CSS alone cannot match on text, so fall back
      to scanning for a control literally labelled "Unread", then to the URL. */
 
+  /* Safety predicate, shared by every path that clicks a LinkedIn control.
+     Word-boundary matched so "sender" or "recommended" are not caught. */
+  function looksLikeSendControl(el) {
+    const label = ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '')).toLowerCase();
+    return /\bsend\b/.test(label);
+  }
+
   function findUnreadControl() {
     const hit = LLA.resolve('unreadFilter');
     if (hit) return hit.el;
@@ -348,7 +353,7 @@
     if (el) {
       const pressed = el.getAttribute('aria-pressed') || el.getAttribute('aria-checked') || el.getAttribute('aria-selected');
       if (pressed !== null) return pressed === 'true';
-      if (/selected|active/.test(el.className || '')) return true;
+      if (Array.from(el.classList).some((c) => /selected|active/.test(c))) return true;
     }
     return /[?&]filter=unread/.test(location.search);
   }
@@ -358,12 +363,9 @@
     const el = findUnreadControl();
 
     // Never let this path touch a send control, whatever the DOM looks like.
-    if (el) {
-      const label = ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '')).toLowerCase();
-      if (label.includes('send')) {
-        LLA.log('refusing to click a control labelled "send"', el);
-        return;
-      }
+    if (el && looksLikeSendControl(el)) {
+      LLA.log('refusing to click a control labelled "send"', el);
+      return;
     }
 
     const wasOn = unreadFilterIsOn(el);
@@ -449,8 +451,7 @@
     }
 
     const clickable = target.querySelector('a, [role="link"], .msg-conversation-listitem__link') || target;
-    const label = ((clickable.getAttribute('aria-label') || '') + ' ' + (clickable.textContent || '')).toLowerCase();
-    if (/\bsend\b/.test(label)) {
+    if (looksLikeSendControl(clickable)) {
       LLA.log('refusing to click a control labelled "send"', clickable);
       return;
     }
@@ -531,8 +532,9 @@
     document.removeEventListener('keydown', onHotkey, true);
     try {
       chrome.storage.onChanged.removeListener(onStorageChanged);
+      chrome.runtime.onMessage.removeListener(onRuntimeMessage);
     } catch {
-      // context already dead; the listener dies with it
+      // context already dead; the listeners die with it
     }
     document.getElementById('lla-host')?.remove();
     document.getElementById('lla-hint')?.remove();
