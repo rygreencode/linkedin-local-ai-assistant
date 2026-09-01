@@ -206,7 +206,15 @@ live state:
 ```
 ⌥U unread [on]      ×
 ⌥N next conversation
+─────────────────────
+⌘↩ send (LinkedIn)
 ```
+
+The last row is a **reminder only**. ⌘↩ is LinkedIn's own shortcut; the extension
+does not bind it and must never bind it — see [Safety model](#safety-model). It is
+ruled off and muted so it reads as not-ours. Note that LinkedIn's "Press Enter to
+send" preference changes which key sends: with that setting on, plain Enter sends
+instead.
 
 It is pinned to the left edge of the browser window, near the top
 (`left: 16px, top: 100px`). Fixed positioning, so it stays put as the
