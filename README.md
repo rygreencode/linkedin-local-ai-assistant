@@ -7,6 +7,9 @@ network request it makes is to `localhost`.
 It reads the thread you're looking at, writes a reply in your voice, and puts it
 in the composer. **You** press Send. It cannot send for you, by design.
 
+It also carries keyboard shortcuts for inbox triage — toggling LinkedIn's unread
+filter and walking down the conversation list without the mouse.
+
 ---
 
 ## Contents
@@ -38,6 +41,9 @@ tools send your private messages to someone else's server.
 
 This runs a 3-billion-parameter model on your laptop. Your messages never leave
 the machine, and a draft costs nothing per call.
+
+The triage shortcuts exist for the same reason: most of the work is deciding
+which threads deserve a reply at all, and that is faster from the keyboard.
 
 ---
 
@@ -78,7 +84,7 @@ configuration correct.
 | [Ollama](https://ollama.com) | `brew install ollama` |
 | Python 3 | for the native messaging host — any 3.8+ |
 
-No Node, no npm, no bundler. The extension is plain ES5/ES2020 JavaScript loaded
+No Node, no npm, no bundler. The extension is plain ES2020 JavaScript loaded
 directly by Chrome.
 
 ---
@@ -314,9 +320,15 @@ LinkedIn's editor listens for — and stops there. Every message requires a
 deliberate human action.
 
 The two places the extension clicks a LinkedIn control are the unread filter and
-the conversation list. Both check the resolved element's label first and refuse
-outright if it looks like a send control, so a mis-bound selector override cannot
-turn navigation into a send.
+the conversation list. Both route through a single predicate,
+`looksLikeSendControl()`, and refuse outright if the resolved element's label
+matches `send` on a word boundary — so a mis-bound selector override cannot turn
+navigation into a send. Keep that one definition: it previously existed twice and
+the two copies drifted apart.
+
+The bubble's `⌘↩ send` row is a label only. The extension does not bind it and
+must not: that shortcut belongs to LinkedIn, and the human pressing it is the
+whole point.
 
 If you extend this code, keep it that way. Automated sending is the difference
 between a drafting aid and a spam cannon, and it is also what gets LinkedIn
@@ -356,7 +368,22 @@ chatInput: [
 ```
 
 **2. Diagnostics.** The popup shows every element as **OK** or **FAILED**, plus
-which tier matched — so you can see degradation before it becomes breakage.
+which tier matched — so you can see degradation before it becomes breakage. The
+eight resolvable elements:
+
+| Key | Popup label | Used for |
+| --- | --- | --- |
+| `chatInput` | Chat input | where drafts and the booking link are written |
+| `formAnchor` | Compose box (UI anchor) | what the button bar is inserted above |
+| `threadContainer` | Message list | scope for scraping messages |
+| `messageNode` | Message bubble | the individual messages scraped |
+| `headerName` | Recipient name | recipient name for the prompt |
+| `headerSubtitle` | Recipient headline | title and company for the prompt |
+| `unreadFilter` | Unread filter | the control `⌥U` toggles |
+| `conversationItem` | Conversation list item | the rows `⌥N` walks |
+
+A user override set by the picker is stored per key in `selectorOverrides` and
+tried ahead of every built-in tier.
 
 **3. Element picker.** For anything FAILED, click **Pick**, then click the real
 element on the page. The extension generates a selector, verifies uniqueness,
@@ -375,7 +402,7 @@ src/
   scraper.js           recipient metadata + last 5 messages
   prompt.js            prompt assembly, model-output cleanup
   background.js        Ollama client, watchdog, native host, idle shutdown
-  content.js           shadow-DOM UI, hotkeys, composer insertion
+  content.js           shadow-DOM UI, hotkeys, composer insertion, triage actions
   picker.js            element picker overlay
   popup.html/.js       diagnostics panel, start/stop controls
   options.html/.js     knowledge base + engine configuration
@@ -487,9 +514,9 @@ the console. Covered cases:
 | Draft already ends in whitespace | no double space |
 | Draft twice | second replaces the first, no append |
 
-`test/messaging/index.html` covers the unread-filter toggle. Serve the `test`
-directory as above and open `http://localhost:8777/messaging/` — the path matters,
-the code only acts under `/messaging`. Call `runTests()`:
+`test/messaging/index.html` covers the unread-filter toggle. With the same server
+running, open `http://localhost:8777/messaging/` — the path matters, the code only
+acts under `/messaging`. Call `runTests()`:
 
 | Case | Expected |
 | --- | --- |
