@@ -200,10 +200,12 @@ row if nothing is selected and nothing has been navigated yet.
 
 ### Shortcut reminder
 
-A single bubble carries every shortcut, with the unread filter's live state:
+A single bubble carries every shortcut, one per row, with the unread filter's
+live state:
 
 ```
-⌥U unread [on] | ⌥N next conversation  ×
+⌥U unread [on]      ×
+⌥N next conversation
 ```
 
 It is pinned to the left edge of the browser window, near the top

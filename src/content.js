@@ -114,25 +114,25 @@
       shadow.innerHTML = `
         <style>
           .chip { position:fixed; left:16px; top:100px; z-index:9999;
-                  display:flex; align-items:center; gap:10px;
+                  display:flex; flex-direction:column; align-items:flex-start; gap:6px;
                   background:rgba(17,17,17,.92); color:#fff; backdrop-filter:blur(6px);
                   font:12px/1.4 -apple-system, system-ui, "Segoe UI", sans-serif;
-                  padding:7px 10px; border-radius:16px; box-shadow:0 2px 10px rgba(0,0,0,.25);
-                  white-space:nowrap; }
+                  padding:8px 30px 8px 10px; border-radius:14px;
+                  box-shadow:0 2px 10px rgba(0,0,0,.25); white-space:nowrap; }
+          .row { display:flex; align-items:center; gap:6px; }
           kbd { font:11px/1 ui-monospace, monospace; background:rgba(255,255,255,.16);
-                border-radius:3px; padding:2px 5px; }
-          .sep { opacity:.35; }
+                border-radius:3px; padding:3px 5px; min-width:22px; text-align:center; }
           .state { font-weight:600; padding:2px 7px; border-radius:9px; }
           .on  { background:#14632c; }
           .off { background:rgba(255,255,255,.16); }
-          .x { cursor:pointer; opacity:.55; padding:0 2px; font-size:14px; }
+          .x { position:absolute; top:5px; right:9px;
+               cursor:pointer; opacity:.55; font-size:14px; line-height:1; }
           .x:hover { opacity:1; }
         </style>
         <div class="chip">
-          <span><kbd>⌥U</kbd> unread <span class="state off">off</span></span>
-          <span class="sep">|</span>
-          <span><kbd>⌥N</kbd> next conversation</span>
           <span class="x" title="Hide (re-enable in Settings)">&times;</span>
+          <div class="row"><kbd>⌥U</kbd> unread <span class="state off">off</span></div>
+          <div class="row"><kbd>⌥N</kbd> next conversation</div>
         </div>`;
       shadow.querySelector('.x').addEventListener('click', () => {
         LLA.saveSettings({ showShortcutHint: false }).then(renderHint);
