@@ -721,6 +721,9 @@
     observer.observe(document.body, { childList: true, subtree: true });
     syncNow();
     chrome.storage.onChanged.addListener(onStorageChanged);
-    LLA.log('content script ready');
+    // Which build is actually live? Reloading a tab does not reload the
+    // extension, so this is the quickest way to tell a stale copy apart.
+    LLA.version = chrome.runtime.getManifest().version;
+    console.log(`[LLA] v${LLA.version} ready`);
   });
 })();
