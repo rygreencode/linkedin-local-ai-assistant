@@ -494,10 +494,13 @@ candidate on the page with its label, visibility and pressed state.
 
 - **`resolved: null`, `filterTrigger: null`** — neither the control nor a dropdown
   is on the page. Use the popup's **Pick** on the *Unread filter* row.
-- **`resolved` is a "Mark as unread" button** — a stale selector override. Clear
-  overrides in Settings, or re-Pick. The built-in tiers guard against this now:
-  a match is validated against a label starting with "Unread", so LinkedIn's
-  per-row *Mark as unread* button cannot be mistaken for the filter.
+- **It clicks the wrong filter** — "Jobs", "Focused", or LinkedIn's per-row *Mark
+  as unread*. Every selector tier is anchored on a label starting with "Unread"
+  now, and every hit is validated against that label — **including a user
+  override from the picker**, which used to be trusted blindly. A selector that
+  resolves to the wrong control is refused with a console warning naming what it
+  found, rather than clicking it. The popup's diagnostics show which control
+  resolved, so a wrong binding is visible at a glance.
 - **`resolved` looks right but nothing happens** — the control is probably inside
   a closed menu. `⌥u` opens the filter dropdown and retries automatically before
   falling back to `?filter=unread`.

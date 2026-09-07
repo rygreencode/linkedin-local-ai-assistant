@@ -18,8 +18,13 @@ pre{background:#eee;padding:10px;margin-top:14px}</style>
 <script>
 // Mirrors the unread-filter logic from content.js
 const LLA = { settings: { selectorOverrides: {} }, log(){}, resolve(key){
-  const tiers = { unreadFilter: ['button[aria-label="Unread"]','button[aria-label*="Unread" i]'] }[key] || [];
-  for (const sel of tiers) { const el = document.querySelector(sel); if (el) return { el, selector: sel }; }
+  const override = LLA.settings.selectorOverrides[key];
+  const tiers = { unreadFilter: ['button[aria-label="Unread"]','[role="radio"][aria-label="Unread"]','button[aria-label^="Unread" i]'] }[key] || [];
+  const list = override ? [override, ...tiers] : tiers;
+  for (let i = 0; i < list.length; i++) {
+    const el = document.querySelector(list[i]);
+    if (el) return { el, selector: list[i], tier: override ? i - 1 : i };
+  }
   return null;
 }};
 function isVisible(el){
@@ -39,7 +44,7 @@ function unreadCandidates(root=document){
 }
 function findUnreadControl(){
   const hit = LLA.resolve('unreadFilter');
-  if (hit && isVisible(hit.el) && (hit.tier === -1 || labelLooksUnread(hit.el))) return hit.el;
+  if (hit && isVisible(hit.el) && labelLooksUnread(hit.el)) return hit.el;
   const visible = unreadCandidates().filter(el => isVisible(el) && labelLooksUnread(el));
   return visible.length ? visible[0] : null;
 }
@@ -122,7 +127,23 @@ window.runTests = async function () {
   };
   await new Promise(res => toggleUnreadFilter(a => { r.push({case:'behind a dropdown', action:a}); res(); }));
 
-  // 6. send guard
+  // 6. a filter row where Unread is NOT first — the reported "clicks Jobs" bug
+  set('<div class="msg-conversations-container__filters">' +
+      '<button role="radio" aria-label="Focused">Focused</button>' +
+      '<button role="radio" aria-label="Unread" aria-checked="false">Unread</button>' +
+      '<button role="radio" aria-label="Jobs">Jobs</button></div>');
+  r.push({ case:'picks Unread, not a neighbouring pill',
+           label: (findUnreadControl()||{}).getAttribute?.('aria-label') ?? null });
+
+  // 7. a stale override pointing at the wrong pill must be ignored, not obeyed
+  LLA.settings.selectorOverrides = { unreadFilter: 'button[aria-label="Jobs"]' };
+  const viaOverride = findUnreadControl();
+  r.push({ case:'stale override pointing at Jobs is refused',
+           label: viaOverride ? viaOverride.getAttribute('aria-label') : null,
+           notJobs: !viaOverride || viaOverride.getAttribute('aria-label') !== 'Jobs' });
+  LLA.settings.selectorOverrides = {};
+
+  // 8. send guard
   set('<button aria-label="Unread">Unread — Send message</button>');
   await new Promise(res => toggleUnreadFilter(a => { r.push({case:'send guard', action:a}); res(); }));
 

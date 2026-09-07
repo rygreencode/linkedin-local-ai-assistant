@@ -58,10 +58,15 @@ globalThis.LLA_SELECTOR_TIERS = {
     '.msg-conversations-container__conversations-list li',
     'div[role="main"] ul li'
   ],
+  // Every tier is anchored on the label. A shape-only selector such as
+  // ".msg-conversations-container__filters button[role=radio]" matches whichever
+  // pill happens to come first — Jobs, Focused, anything — and clicks it.
   unreadFilter: [
     'button[aria-label="Unread"]',
-    'button[aria-label*="Unread" i]',
-    '.msg-conversations-container__filters button[role="radio"]'
+    '[role="radio"][aria-label="Unread"]',
+    '[role="menuitemradio"][aria-label="Unread"]',
+    'button[aria-label^="Unread" i]',
+    '[aria-label^="Unread" i][role]'
   ],
   formAnchor: [
     'form.msg-form',

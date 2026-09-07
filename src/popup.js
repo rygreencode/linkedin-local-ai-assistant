@@ -101,7 +101,8 @@ async function checkDom() {
       info.innerHTML =
         `Thread: ${esc(ctx.name) || '(no name)'} — ${ctx.messageCount} message(s).<br>` +
         `Conversation rows: <b>${ctx.conversationRows}</b>, active row: <b>${active}</b>.<br>` +
-        `Unread filter: ${ctx.unreadOn ? 'on' : 'off'}.`;
+        `Unread control: ${ctx.unreadLabel ? '<b>' + esc(ctx.unreadLabel) + '</b>' : '<b>none found</b>'}` +
+      ` (${ctx.unreadOn ? 'on' : 'off'}).`;
     }
     $('diag').appendChild(info);
   }

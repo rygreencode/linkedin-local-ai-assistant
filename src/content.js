@@ -324,6 +324,10 @@
         name: c.recipient.name,
         headline: c.recipient.headline,
         messageCount: c.messages.length,
+        unreadLabel: (() => {
+          const el = findUnreadControl();
+          return el ? (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30) : null;
+        })(),
         conversationRows: rows.length,
         activeRow: rows.findIndex(isActiveConversation),
         unreadOn: unreadFilterIsOn(findUnreadControl())
@@ -373,10 +377,18 @@
 
   function findUnreadControl() {
     const hit = LLA.resolve('unreadFilter');
-    // A tier selector matching on *="Unread" also matches LinkedIn's per-row
-    // "Mark as unread" button, so validate the label unless the user bound this
-    // element themselves with the picker (tier -1), in which case trust them.
-    if (hit && isVisible(hit.el) && (hit.tier === -1 || labelLooksUnread(hit.el))) return hit.el;
+    // Validate the label on every hit, including a user override from the
+    // picker. Trusting an override blindly meant a mis-bound or since-shifted
+    // selector clicked a neighbouring filter — "Jobs" instead of "Unread" —
+    // which is worse than doing nothing.
+    if (hit && isVisible(hit.el)) {
+      if (labelLooksUnread(hit.el)) return hit.el;
+      const label = (hit.el.getAttribute('aria-label') || hit.el.textContent || '').trim().slice(0, 40);
+      console.warn(
+        `[LLA] "${hit.selector}" resolves to "${label}", which is not the Unread filter — ignoring it.` +
+          (hit.tier === -1 ? ' Clear or re-Pick the override in Settings.' : '')
+      );
+    }
 
     // Visibility matters: a match inside a closed menu is clickable in the DOM
     // sense but does nothing the user can see.
