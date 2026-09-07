@@ -23,13 +23,16 @@ filter and walking down the conversation list without the mouse.
 - [Managing the Ollama process](#managing-the-ollama-process)
 - [Safety model](#safety-model)
 - [Privacy](#privacy)
-- [DOM resilience](#dom-resilience)
-- [Architecture](#architecture)
 - [Troubleshooting](#troubleshooting)
-- [Testing](#testing)
-- [Performance notes](#performance-notes)
-- [Not built yet](#not-built-yet)
-- [Future integrations](#future-integrations)
+
+**Further reading**
+
+- [Architecture](docs/architecture.md) — module layout, and the tiered selector
+  system that keeps this working when LinkedIn restyles
+- [Testing and performance](docs/testing.md) — the browser fixtures and what they
+  cover, plus measured latency and memory
+- [Roadmap](docs/roadmap.md) — deferred features, and the Antler Hub side panel
+  blocked on credentials
 
 ---
 
@@ -85,7 +88,8 @@ configuration correct.
 | Python 3 | for the native messaging host and `scripts/apply_env.py` — any 3.8+ |
 
 No Node, no npm, no bundler. The extension is plain ES2020 JavaScript loaded
-directly by Chrome.
+directly by Chrome. For the file layout and how the selector fallbacks work, see
+[docs/architecture.md](docs/architecture.md).
 
 ---
 
@@ -419,94 +423,6 @@ accounts restricted.
 
 ---
 
-## DOM resilience
-
-LinkedIn changes its CSS class names without warning. Three stages of defence:
-
-**1. Tiered selectors.** Every element has an ordered candidate list in
-`src/defaults.js` — current CSS classes first, then semantic ARIA and structural
-attributes that survive class churn:
-
-```js
-chatInput: [
-  'div.msg-form__contenteditable[contenteditable="true"]',   // tier 0: current classes
-  'form.msg-form div[contenteditable="true"][role="textbox"]', // tier 1: structural
-  'div[contenteditable="true"][role="textbox"]'               // tier 2: semantic only
-]
-```
-
-**2. Diagnostics.** The popup shows every element as **OK** or **FAILED**, plus
-which tier matched — so you can see degradation before it becomes breakage. The
-eight resolvable elements:
-
-| Key | Popup label | Used for |
-| --- | --- | --- |
-| `chatInput` | Chat input | where drafts and the booking link are written |
-| `formAnchor` | Compose box (UI anchor) | what the button bar is inserted above |
-| `threadContainer` | Message list | scope for scraping messages |
-| `messageNode` | Message bubble | the individual messages scraped |
-| `headerName` | Recipient name | recipient name for the prompt |
-| `headerSubtitle` | Recipient headline | title and company for the prompt |
-| `unreadFilter` | Unread filter | the control `⌥U` toggles |
-| `conversationItem` | Conversation list item | the rows `⌥N` walks |
-
-A user override set by the picker is stored per key in `selectorOverrides` and
-tried ahead of every built-in tier.
-
-**3. Element picker.** For anything FAILED, click **Pick**, then click the real
-element on the page. The extension generates a selector, verifies uniqueness,
-saves it to `chrome.storage.local`, and tries it ahead of all built-in tiers.
-Clear overrides from Settings.
-
----
-
-## Architecture
-
-```
-manifest.json          MV3 manifest — permissions, content scripts, icons
-src/
-  defaults.js          default settings + the tiered selector table
-  selectors.js         override-aware resolution, diagnostics snapshot
-  scraper.js           recipient metadata + last 5 messages
-  prompt.js            prompt assembly, model-output cleanup
-  background.js        Ollama client, watchdog, native host, idle shutdown
-  content.js           shadow-DOM UI, hotkeys, composer insertion, triage actions
-  picker.js            element picker overlay
-  popup.html/.js       diagnostics panel, start/stop controls
-  options.html/.js     knowledge base + engine configuration
-native/
-  ollama_launcher.py   native messaging host: status / start / stop
-  install_host.py      registers the host, computes the extension ID
-scripts/
-  apply_env.py         compiles .env into config.local.json
-.env.example           template; copy to .env (gitignored)
-.env                   your values — gitignored, never committed
-config.local.json      generated from .env — gitignored, fetched by the worker
-test/
-  composer-fixture.html  contenteditable harness for insertion behaviour
-  messaging/index.html   unread-filter toggle harness (must be served at /messaging/)
-  popup-fixture.html     popup harness with a stubbed chrome API
-icons/                 16/32/48/128, generated from a 2048px source
-```
-
-### Notes on structure
-
-**Content scripts share a global, not ES modules.** MV3 content scripts cannot be
-ES modules, so the six files are listed in order in the manifest and communicate
-through a `globalThis.LLA` namespace. Load order matters.
-
-**Shadow DOM isolation.** All injected UI lives in a shadow root with
-`all: initial`, so LinkedIn's stylesheet cannot leak in and the extension's CSS
-cannot leak out.
-
-**Instance handover.** After an extension reload, the service worker re-injects
-into open LinkedIn tabs. Each instance publishes `globalThis.__LLA_TEARDOWN`; the
-next one calls it to disconnect observers, drop listeners, and strip the stale UI
-before mounting. Without this, an orphaned script sits on the page throwing
-*"Extension context invalidated"* on every keystroke.
-
----
-
 ## Troubleshooting
 
 ### "Native host has exited"
@@ -579,172 +495,6 @@ Settings and inspect the `[LLA] scraped context` line in the tab's console.
 ### Drafts sound generic
 
 Fill in **Style samples**. This is almost always the cause.
-
----
-
-## Testing
-
-`test/composer-fixture.html` is a standalone harness for the trickiest logic —
-caret handling and append-vs-replace insertion into a `contenteditable`.
-
-It needs a real origin; `file://` will not execute the script. Serve it:
-
-```bash
-python3 -m http.server 8777 --directory test
-```
-
-Then open `http://localhost:8777/composer-fixture.html` and call `runTests()` in
-the console. Covered cases:
-
-| Case | Expected |
-| --- | --- |
-| Link into an empty composer | URL only, one `input` event |
-| Draft, then link | single separating space |
-| Draft already ends in whitespace | no double space |
-| Draft twice | second replaces the first, no append |
-
-`test/popup-fixture.html` drives the real `popup.html` and `popup.js` against a
-stubbed `chrome` API, covering the meeting-link field: it shows the stored link,
-rejects a bare domain without saving, saves a new link, and — the case that
-matters — clears to empty rather than re-filling itself. It
-loads the shipping files by path, so it cannot drift from them. Serve the
-repository root rather than `test/`:
-
-```bash
-python3 -m http.server 8778
-```
-
-then open `http://localhost:8778/test/popup-fixture.html`.
-
-`test/messaging/index.html` covers the unread-filter toggle. With the same server
-running, open `http://localhost:8777/messaging/` — the path matters, the code only
-acts under `/messaging`. Call `runTests()`:
-
-| Case | Expected |
-| --- | --- |
-| Finds the filter control | resolves via the tiered selectors |
-| Toggle on / off | clicks the control, state reads back correctly |
-| Mis-bound to a send control | **refused**, nothing clicked |
-| No control in the DOM | falls back to `?filter=unread` |
-
-`runNavTests()` on the same page covers `Alt + N`:
-
-| Case | Expected |
-| --- | --- |
-| URL points at a middle row | moves to the row below |
-| URL points at the last row | stops, does not wrap |
-| URL points at the first row | moves to the second |
-| Detection fails, three presses | walks down three rows, does not reopen the top |
-
-`runFocusTest()` on the same page covers the post-navigation caret:
-
-| Case | Expected |
-| --- | --- |
-| Thread changes | composer of the new thread takes focus |
-| Thread never changes | focuses anyway once the timeout elapses |
-
-The prompt-assembly layer is testable in plain Node, since it touches no DOM:
-
-```bash
-node -e "globalThis.LLA={settings:{guidelines:'Under 3 sentences.',styleSamples:['Thanks for reaching out.']}}; require('./src/prompt.js'); console.log(LLA.buildMessages({recipient:{name:'Alex'},messages:[]},'')[0].content)"
-```
-
----
-
-## Performance notes
-
-Measured with `qwen2.5:3b` on Apple silicon:
-
-| | |
-| --- | --- |
-| Cold generation (model loading) | ~2.4 s |
-| Warm generation | well under 1 s |
-| Model footprint while resident | ~2.2 GB |
-| Idle server process | 26–48 MB |
-
-The default `watchdogMs` of 2500 sits just above the warm case and just below the
-cold one, so your first draft after a pause may offer the lighter model
-unnecessarily. Raise it to ~4000 if that annoys you.
-
----
-
-## Not built yet
-
-From the original spec, deliberately deferred:
-
-- **Suggested message chips** — three drafts offered at once, `Alt + 1/2/3` to pick
-- **Visual intent badging** — a single-token classification pass tagging threads
-  `[Cold Pitch]`, `[Warm Lead]`, `[Recruiter]`, `[Spam]`
-
-The scraper and prompt layers already return everything both features need.
-
----
-
-## Future integrations
-
-### Antler Hub side panel
-
-**Status: investigated, blocked on credentials. No code written.**
-
-The idea: a Chrome side panel (`chrome.sidePanel`, MV3) showing Antler Hub records
-for whoever is currently in view — the recipient of the open conversation, or the
-subject of a `/in/<slug>` profile page — opened by a button beside **Settings** in
-the popup, which kicks off the lookup on click. Roughly what the Attio extension
-does for its CRM.
-
-The design principle worth keeping: this data is **displayed to the reader, not
-injected into the model's prompt**. A wrong match then costs a glance, not a
-fabricated draft.
-
-#### What the investigation found
-
-**A browser extension cannot call an MCP server.** MCP connectors are
-authenticated, session-bound, and speak stdio/SSE. There is no browser-reachable
-endpoint, so any Hub integration needs a bridge process.
-
-**The Hub MCP connector is bound to a Claude session, not to this machine.**
-
-| | |
-| --- | --- |
-| Authenticated as | `ryan.green@antler.co`, role `OPERATIONS` |
-| Lane / scopes | `staff_scoped_read`, `postgres:read` |
-| Credentials on disk | none — no API key, no environment variable |
-
-The native messaging host could host a bridge, but it has nothing to
-authenticate with. **This is the blocker**: it needs a token-authenticated Hub
-endpoint, which is a question for whoever operates Hub, not something that can be
-solved from this repo.
-
-Worth noting for whoever picks this up: for a deterministic sidebar you probably
-want the API *underneath* Hub's MCP rather than MCP itself. MCP is a wrapper for
-model tool-calling; a panel doing "show me this person" lookups wants the source
-directly.
-
-#### Coverage and matching are inversely matched
-
-| | Covers | Matches on |
-| --- | --- | --- |
-| **Hub** | applicants, residency founders, portfolio founders, staff, sourcing leads | name and email only |
-| **`antler-search`** (local, port 8000) | 312 companies, 514 founders — 412 with LinkedIn URLs | canonical `/in/<slug>/`, exact |
-
-Hub knows more people; the local database identifies them far more reliably.
-Hub's `person_search` returns no LinkedIn field, so a profile-page lookup would
-have to match on display name. That is not merely imprecise: a search for a
-common first name returned a hit on an unrelated person via an email substring.
-Any name-matched result must be shown with its confidence, never presented as
-certain.
-
-#### The path that needs no permissions
-
-Extend the existing Harmonic enrichment workflow in `antler-search` to also sync
-Hub **leads and applicants** into the local SQLite alongside founders. That buys
-Hub's breadth with the local database's slug-matching precision, no runtime
-authentication, and no change to the localhost-only privacy property. A live Hub
-token would then only be needed for real-time freshness rather than for the
-feature to exist at all.
-
-The panel itself is independent of all this — it should be built against a
-pluggable data source so the backing store can change without touching the UI.
 
 ---
 
