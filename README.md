@@ -227,6 +227,26 @@ run at least once a second however busy the page is. Reproduced and fixed under 
 simulated mutation storm — the old scheduler ran 0 times in 3 seconds, the new one
 ran twice.
 
+### Changing the meeting link
+
+The popup has a **Meeting link** field under DOM diagnostics: it shows the link
+currently in use, and editing it and pressing **Save** (or Enter) takes effect
+immediately. The same field lives on the options page. Both write the same
+`bookingLink` setting.
+
+Only an absolute `http(s)` URL is accepted — a bare `cal.com/you` would paste
+into the composer as broken text. Clearing the field is allowed and disables the
+feature; the popup then says so rather than leaving you guessing.
+
+> Clearing it really clears it. The paste path used to fall back to the link
+> shipped in `defaults.js` when the setting was empty, so a second user who
+> cleared the field would silently keep pasting the original author's booking
+> link. There is no fallback now.
+
+**If you are not the original author**, note that `defaults.js` still ships a
+personal HubSpot link as the default value. Replace it there, or just set your
+own in the popup — the stored setting always wins.
+
 ### Shortcut reminder
 
 A single bubble carries every shortcut, one per row, with the unread filter's
@@ -278,7 +298,7 @@ All settings live in `chrome.storage.local` and are edited on the options page.
 | `name`, `company` | who the reply is from |
 | `bio` | "About you" |
 | `offer` | used when someone asks what you do |
-| `bookingLink` | only when the reply proposes a meeting — also what the **Add meeting link** button pastes |
+| `bookingLink` | what **Add meeting link** / `⌥M` pastes, and offered to the model when a draft proposes a meeting. Editable from the popup as well as here |
 
 ### Voice
 
@@ -436,6 +456,7 @@ native/
 test/
   composer-fixture.html  contenteditable harness for insertion behaviour
   messaging/index.html   unread-filter toggle harness (must be served at /messaging/)
+  popup-fixture.html     popup harness with a stubbed chrome API
 icons/                 16/32/48/128, generated from a 2048px source
 ```
 
@@ -537,6 +558,19 @@ the console. Covered cases:
 | Draft, then link | single separating space |
 | Draft already ends in whitespace | no double space |
 | Draft twice | second replaces the first, no append |
+
+`test/popup-fixture.html` drives the real `popup.html` and `popup.js` against a
+stubbed `chrome` API, covering the meeting-link field: it shows the stored link,
+rejects a bare domain without saving, saves a new link, and — the case that
+matters — clears to empty rather than falling back to the shipped default. It
+loads the shipping files by path, so it cannot drift from them. Serve the
+repository root rather than `test/`:
+
+```bash
+python3 -m http.server 8778
+```
+
+then open `http://localhost:8778/test/popup-fixture.html`.
 
 `test/messaging/index.html` covers the unread-filter toggle. With the same server
 running, open `http://localhost:8777/messaging/` — the path matters, the code only

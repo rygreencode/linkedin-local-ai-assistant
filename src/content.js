@@ -207,7 +207,9 @@
 
   /* Paste the booking link without disturbing whatever is already drafted. */
   function insertMeetingLink() {
-    const url = LLA.settings.bookingLink || globalThis.LLA_DEFAULT_SETTINGS.bookingLink;
+    // No fallback to the shipped default: if someone clears the field and saves,
+    // an empty link must mean empty, not quietly the previous owner's link.
+    const url = (LLA.settings.bookingLink || '').trim();
     if (!url) {
       setStatus('No meeting link set — add one in Settings.', true);
       return;

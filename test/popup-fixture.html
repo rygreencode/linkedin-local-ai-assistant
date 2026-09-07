@@ -1,0 +1,69 @@
+<!doctype html><meta charset="utf-8"><title>popup harness</title>
+<style>body{font:13px system-ui;margin:0;display:flex;gap:20px;padding:16px}
+#mount{border:1px solid #ccc;width:344px}
+pre{background:#eee;padding:10px;flex:1;white-space:pre-wrap}</style>
+<div id="mount"></div>
+<pre id="results">running…</pre>
+<script>
+// Minimal chrome stub: in-memory storage, canned responses for the rest.
+window.__store = { settings: { bookingLink: 'https://cal.com/example/intro' } };
+window.chrome = {
+  storage: {
+    local: {
+      async get(k) { return window.__store[k] !== undefined ? { [k]: window.__store[k] } : {}; },
+      async set(obj) { Object.assign(window.__store, obj); }
+    },
+    onChanged: { addListener(){}, removeListener(){} }
+  },
+  runtime: {
+    async sendMessage() { return { ok: true, models: ['qwen2.5:3b'], model: 'qwen2.5:3b', endpoint: 'http://localhost:11434' }; },
+    openOptionsPage() {}
+  },
+  tabs: { async query() { return []; }, async sendMessage() { throw new Error('no tab'); } }
+};
+(async () => {
+  // Load the REAL popup markup and scripts, so this cannot drift from shipping code.
+  const html = await (await fetch('/src/popup.html')).text();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  document.getElementById('mount').innerHTML = doc.body.innerHTML;
+  for (const s of ['/src/defaults.js', '/src/popup.js']) {
+    await new Promise((res) => {
+      const el = document.createElement('script'); el.src = s; el.onload = res; document.body.appendChild(el);
+    });
+  }
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const $ = (id) => document.getElementById(id);
+  await wait(150);
+
+  const out = [];
+  out.push({ case: 'shows the stored link on open',
+             shown: $('bookingLink').value,
+             inUse: $('bookingCurrent').textContent });
+
+  // Reject a bare domain
+  $('bookingLink').value = 'cal.com/someone';
+  $('saveBooking').click(); await wait(80);
+  out.push({ case: 'rejects a bare domain',
+             error: $('bookingErr').textContent,
+             saved: window.__store.settings.bookingLink,
+             unchanged: window.__store.settings.bookingLink !== 'cal.com/someone' });
+
+  // Someone else sets their own link
+  $('bookingLink').value = 'https://cal.com/someone-else';
+  $('saveBooking').click(); await wait(80);
+  out.push({ case: 'saves a new link',
+             saved: window.__store.settings.bookingLink,
+             inUse: $('bookingCurrent').textContent });
+
+  // Clearing it must actually clear it, not fall back to the shipped default
+  $('bookingLink').value = '';
+  $('saveBooking').click(); await wait(80);
+  out.push({ case: 'clearing really clears (no fallback to shipped default)',
+             saved: JSON.stringify(window.__store.settings.bookingLink),
+             notRyansLink: window.__store.settings.bookingLink !== globalThis.LLA_DEFAULT_SETTINGS.bookingLink,
+             inUse: $('bookingCurrent').textContent });
+
+  $('results').textContent = JSON.stringify(out, null, 2);
+  window.__results = out;
+})();
+</script>

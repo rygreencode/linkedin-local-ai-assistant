@@ -19,6 +19,11 @@
   #saved { margin-left: 12px; color: #14632c; font-size: 13px; opacity: 0; transition: opacity .2s; }
   #saved.show { opacity: 1; }
   .note { background:#f5f7fa; border-left:3px solid #0a66c2; padding:10px 12px; font-size:13px; }
+  .current { margin-top:10px; padding:8px 10px; border-radius:4px; background:#f5f5f5; font-size:13px; }
+  .current span { font-family: ui-monospace, monospace; font-size:12px; word-break:break-all; }
+  .current.unset { background:#fff4e5; color:#8a5300; }
+  .err { margin-top:6px; color:#b3261e; font-size:13px; }
+  input.invalid { border-color:#b3261e; }
   code { background:#eee; padding:1px 4px; border-radius:3px; font-size:12px; }
 </style>
 <h1>Local LinkedIn AI Assistant</h1>
@@ -43,6 +48,16 @@
 </fieldset>
 
 <fieldset>
+  <legend>Meeting link</legend>
+  <p class="hint" style="margin-top:0">Pasted by the <b>Add meeting link</b> button and <code>⌥M</code>, and offered
+     to the model when a draft proposes a meeting. Yours alone — change it and hit Save.</p>
+  <label for="bookingLink">Your booking link</label>
+  <input type="text" id="bookingLink" placeholder="https://cal.com/you" autocomplete="off">
+  <div id="bookingError" class="err" hidden></div>
+  <div id="bookingCurrent" class="current">Currently in use: <span></span></div>
+</fieldset>
+
+<fieldset>
   <legend>Knowledge base</legend>
   <label>Your name</label><input type="text" id="name">
   <label>Your company</label><input type="text" id="company">
@@ -50,8 +65,6 @@
   <textarea id="bio"></textarea>
   <label>What you offer <span class="hint">used when someone asks what you do</span></label>
   <textarea id="offer"></textarea>
-  <label>Booking link <span class="hint">only injected when the reply proposes a meeting</span></label>
-  <input type="text" id="bookingLink" placeholder="https://cal.com/you">
 </fieldset>
 
 <fieldset>

@@ -18,13 +18,33 @@
   #engine { padding: 8px; border-radius: 4px; background: #f5f5f5; font-size: 12px; }
   #engine code { font-size: 11px; }
   footer { margin-top: 14px; display: flex; gap: 8px; }
+  #bookingLink { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px;
+                 padding: 5px 7px; border: 1px solid #ccc; border-radius: 4px; }
+  #bookingLink.invalid { border-color: #b3261e; }
+  .booking-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+  .booking-row button { white-space: nowrap; }
+  #bookingErr { color: #b3261e; font-size: 11px; margin-top: 4px; }
+  #bookingCurrent { font-size: 11px; color: #666; margin-top: 6px; word-break: break-all; }
+  #bookingCurrent.unset { color: #8a5300; }
+  #bookingSaved { color: #14632c; font-size: 11px; opacity: 0; transition: opacity .2s; }
+  #bookingSaved.show { opacity: 1; }
 </style>
 <h1>Inference engine</h1>
 <div id="engine">Checking…</div>
 <h1>DOM diagnostics</h1>
 <div id="diag">Open a LinkedIn tab to run diagnostics.</div>
+<h1>Meeting link</h1>
+<input type="text" id="bookingLink" placeholder="https://cal.com/you" autocomplete="off">
+<div id="bookingErr" hidden></div>
+<div class="booking-row">
+  <button id="saveBooking">Save</button>
+  <span id="bookingSaved">Saved</span>
+</div>
+<div id="bookingCurrent"></div>
+
 <footer>
   <button id="recheck">Re-check</button>
   <button id="options">Settings</button>
 </footer>
+<script src="defaults.js"></script>
 <script src="popup.js"></script>

@@ -107,6 +107,63 @@ async function checkDom() {
   }
 }
 
+/* ---------- Meeting link ----------
+   Editable here as well as on the options page; both write the same
+   settings.bookingLink, so whatever is saved last is what gets pasted. */
+
+async function loadBooking() {
+  const stored = await chrome.storage.local.get('settings');
+  const settings = { ...globalThis.LLA_DEFAULT_SETTINGS, ...(stored.settings || {}) };
+  $('bookingLink').value = settings.bookingLink || '';
+  renderBookingCurrent(settings.bookingLink);
+}
+
+function renderBookingCurrent(value) {
+  const box = $('bookingCurrent');
+  const v = (value || '').trim();
+  box.classList.toggle('unset', !v);
+  box.textContent = v
+    ? `In use: ${v}`
+    : 'Not set — the button and ⌥M will do nothing.';
+}
+
+/* Empty is allowed and disables the feature; anything else must be a real
+   absolute URL, or it pastes into the composer as broken text. */
+function bookingError(value) {
+  if (!value) return null;
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return 'Not a full URL — include https://';
+  }
+  if (!/^https?:$/.test(url.protocol)) return 'Use an http:// or https:// link.';
+  return null;
+}
+
+async function saveBooking() {
+  const value = $('bookingLink').value.trim();
+  const err = bookingError(value);
+  $('bookingErr').hidden = !err;
+  $('bookingErr').textContent = err || '';
+  $('bookingLink').classList.toggle('invalid', Boolean(err));
+  if (err) {
+    $('bookingLink').focus();
+    return;
+  }
+  const stored = await chrome.storage.local.get('settings');
+  const settings = { ...globalThis.LLA_DEFAULT_SETTINGS, ...(stored.settings || {}), bookingLink: value };
+  await chrome.storage.local.set({ settings });
+  renderBookingCurrent(value);
+  $('bookingSaved').classList.add('show');
+  setTimeout(() => $('bookingSaved').classList.remove('show'), 1500);
+}
+
+$('saveBooking').onclick = saveBooking;
+$('bookingLink').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') saveBooking();
+});
+
 $('recheck').onclick = () => {
   checkEngine();
   checkDom();
@@ -114,3 +171,4 @@ $('recheck').onclick = () => {
 $('options').onclick = () => chrome.runtime.openOptionsPage();
 checkEngine();
 checkDom();
+loadBooking();
