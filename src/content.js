@@ -137,6 +137,7 @@
           <span class="x" title="Hide (re-enable in Settings)">&times;</span>
           <div class="row"><kbd>⌥u</kbd> unread <span class="state off">off</span></div>
           <div class="row"><kbd>⌥n</kbd> next conversation</div>
+          <div class="row"><kbd>⌥m</kbd> meeting link</div>
           <div class="row native"><kbd>⌘↩</kbd> send (LinkedIn)</div>
         </div>`;
       shadow.querySelector('.x').addEventListener('click', () => {
@@ -546,6 +547,13 @@
       e.preventDefault();
       e.stopPropagation();
       nextConversation();
+      return;
+    }
+
+    if ((key === 'm' || e.code === 'KeyM') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      insertMeetingLink();
     }
   }
 

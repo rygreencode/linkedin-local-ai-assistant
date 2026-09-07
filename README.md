@@ -161,13 +161,17 @@ Open a LinkedIn message thread. A bar appears above the composer.
 | --- | --- | --- |
 | **Draft reply** | — | scrape the thread, generate, **replace** composer contents |
 | **Regenerate** | — | different angle, different opening (enabled after the first draft) |
-| **Add meeting link** | — | **append** your booking link at the cursor, draft untouched |
+| **Add meeting link** | `Alt + M` | **append** your booking link at the cursor, draft untouched |
 | *(unread filter)* | `Alt + U` | toggle LinkedIn's Unread filter on and off |
 | *(next conversation)* | `Alt + N` | move to the next conversation below the active one |
 | *(watchdog)* | — | appears only when generation is slow: retry on the lighter model |
 
-`Alt + U` and `Alt + N` are the only keyboard shortcuts. Drafting and
+`Alt + U`, `Alt + N` and `Alt + M` are the keyboard shortcuts. Drafting and
 regenerating are button-only.
+
+Unlike the other two, `Alt + M` is not restricted to `/messaging` — LinkedIn's
+overlay composer appears on other pages, and pasting the link there is just as
+useful.
 
 Drafting replaces; the meeting link appends, inserting a single separating space
 only when one is needed.
@@ -231,6 +235,7 @@ live state:
 ```
 ⌥u unread [on]      ×
 ⌥n next conversation
+⌥m meeting link
 ─────────────────────
 ⌘↩ send (LinkedIn)
 ```
