@@ -480,6 +480,28 @@ If it says OK and the bar is still missing, reload the tab. An earlier version
 could miss the mount entirely on a busy page; see
 [Why the bar sometimes did not appear](#why-the-bar-sometimes-did-not-appear).
 
+### The unread filter does nothing, or marks a thread unread
+
+`⌥u` resolves LinkedIn's own filter control. Three things can go wrong, and one
+diagnostic distinguishes them — paste this into the console on a messaging page:
+
+```js
+LLA.debugUnread()
+```
+
+It reports the resolved control, whether a filter dropdown was found, and every
+candidate on the page with its label, visibility and pressed state.
+
+- **`resolved: null`, `filterTrigger: null`** — neither the control nor a dropdown
+  is on the page. Use the popup's **Pick** on the *Unread filter* row.
+- **`resolved` is a "Mark as unread" button** — a stale selector override. Clear
+  overrides in Settings, or re-Pick. The built-in tiers guard against this now:
+  a match is validated against a label starting with "Unread", so LinkedIn's
+  per-row *Mark as unread* button cannot be mistaken for the filter.
+- **`resolved` looks right but nothing happens** — the control is probably inside
+  a closed menu. `⌥u` opens the filter dropdown and retries automatically before
+  falling back to `?filter=unread`.
+
 ### "No meeting link set"
 
 Nothing is stored in `bookingLink`. Set it in the popup's **Meeting link** field,

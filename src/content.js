@@ -344,50 +344,136 @@
     return /\bsend\b/.test(label);
   }
 
+  /* "Is this rendered?" — not "does it have area". checkVisibility accounts for
+     display, visibility and content-visibility, and unlike measuring a rect it
+     does not misjudge a block element in a narrow viewport. */
+  function isVisible(el) {
+    if (typeof el.checkVisibility === 'function') return el.checkVisibility();
+    const r = el.getBoundingClientRect();
+    return r.width > 0 || r.height > 0;
+  }
+
+  /* "Unread", "Unread (3)", "Unread messages" — but not "Mark as unread". */
+  function labelLooksUnread(el) {
+    const aria = (el.getAttribute('aria-label') || '').trim();
+    const text = (el.textContent || '').trim();
+    for (const label of [aria, text]) {
+      if (!label || label.length > 40) continue;
+      // Anchored: "Unread", "Unread (3)" — never "Mark as unread".
+      if (/^unread\b/i.test(label)) return true;
+    }
+    return false;
+  }
+
+  function unreadCandidates(root = document) {
+    return Array.from(
+      root.querySelectorAll('button, [role="radio"], [role="menuitem"], [role="menuitemradio"], [role="tab"], [role="option"]')
+    );
+  }
+
   function findUnreadControl() {
     const hit = LLA.resolve('unreadFilter');
-    if (hit) return hit.el;
-    const candidates = document.querySelectorAll(
-      'button, [role="radio"], [role="menuitem"], [role="tab"]'
-    );
-    for (const el of candidates) {
-      const label = (el.getAttribute('aria-label') || el.textContent || '').trim();
-      if (/^unread$/i.test(label)) return el;
-    }
+    // A tier selector matching on *="Unread" also matches LinkedIn's per-row
+    // "Mark as unread" button, so validate the label unless the user bound this
+    // element themselves with the picker (tier -1), in which case trust them.
+    if (hit && isVisible(hit.el) && (hit.tier === -1 || labelLooksUnread(hit.el))) return hit.el;
+
+    // Visibility matters: a match inside a closed menu is clickable in the DOM
+    // sense but does nothing the user can see.
+    const visible = unreadCandidates().filter((el) => isVisible(el) && labelLooksUnread(el));
+    if (visible.length) return visible[0];
     return null;
   }
 
-  function unreadFilterIsOn(el) {
-    if (el) {
-      const pressed = el.getAttribute('aria-pressed') || el.getAttribute('aria-checked') || el.getAttribute('aria-selected');
-      if (pressed !== null) return pressed === 'true';
-      if (Array.from(el.classList).some((c) => /selected|active/.test(c))) return true;
+  /* LinkedIn keeps the filters behind a dropdown in some layouts, so the Unread
+     item does not exist until the menu is open. Open it, then look again. */
+  function findFilterMenuTrigger() {
+    return unreadCandidates().find((el) => {
+      if (!isVisible(el)) return false;
+      const label = ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '')).toLowerCase();
+      return /filter/.test(label) && !/\bsend\b/.test(label);
+    }) || null;
+  }
+
+  function withOpenFilterMenu(callback) {
+    const trigger = findFilterMenuTrigger();
+    if (!trigger) {
+      LLA.log('no filter dropdown trigger found');
+      callback(null);
+      return;
     }
-    return /[?&]filter=unread/.test(location.search);
+    LLA.log('opening filter dropdown', trigger.getAttribute('aria-label') || trigger.textContent.trim());
+    trigger.click();
+
+    const deadline = Date.now() + 900;
+    const poll = () => {
+      const el = findUnreadControl();
+      if (el) return callback(el);
+      if (Date.now() < deadline) return setTimeout(poll, 90);
+      // Nothing turned up — put the menu back the way we found it.
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      callback(null);
+    };
+    setTimeout(poll, 90);
+  }
+
+  /* Paste LLA.debugUnread() into the console on a LinkedIn messaging page to see
+     exactly what the page offers. */
+  LLA.debugUnread = function () {
+    const dump = (el) => ({
+      tag: el.tagName,
+      role: el.getAttribute('role'),
+      ariaLabel: el.getAttribute('aria-label'),
+      text: (el.textContent || '').trim().slice(0, 40),
+      visible: isVisible(el),
+      pressed: el.getAttribute('aria-pressed') || el.getAttribute('aria-checked') || el.getAttribute('aria-selected'),
+      classes: (typeof el.className === 'string' ? el.className : '').slice(0, 90)
+    });
+    const all = unreadCandidates();
+    return {
+      url: location.pathname + location.search,
+      selectorHit: LLA.resolve('unreadFilter')?.selector || null,
+      resolved: findUnreadControl() ? dump(findUnreadControl()) : null,
+      filterTrigger: findFilterMenuTrigger() ? dump(findFilterMenuTrigger()) : null,
+      unreadish: all.filter(labelLooksUnread).map(dump),
+      filterish: all
+        .filter((el) => /filter|unread|focused|other/i.test((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '')))
+        .slice(0, 25)
+        .map(dump)
+    };
+  };
+
+  function clickUnread(el, wasOn) {
+    if (looksLikeSendControl(el)) {
+      LLA.log('refusing to click a control labelled "send"', el);
+      return;
+    }
+    el.click();
+    LLA.log('toggled unread filter via control', el.getAttribute('aria-label') || el.textContent.trim());
+    setTimeout(renderHint, 400);
   }
 
   function toggleUnreadFilter() {
     if (!location.pathname.startsWith('/messaging')) return;
-    const el = findUnreadControl();
 
-    // Never let this path touch a send control, whatever the DOM looks like.
-    if (el && looksLikeSendControl(el)) {
-      LLA.log('refusing to click a control labelled "send"', el);
+    const el = findUnreadControl();
+    const wasOn = unreadFilterIsOn(el);
+
+    if (el) {
+      clickUnread(el, wasOn);
       return;
     }
 
-    const wasOn = unreadFilterIsOn(el);
-    if (el) {
-      el.click();
-      LLA.log('toggled unread filter via control', el);
-    } else {
-      // No control found — drive it off the URL instead.
+    // Not on the page as it stands — it may live behind the filter dropdown.
+    withOpenFilterMenu((fromMenu) => {
+      if (fromMenu) {
+        clickUnread(fromMenu, wasOn);
+        return;
+      }
       const url = wasOn ? '/messaging/' : '/messaging/?filter=unread';
-      LLA.log('no unread control found; navigating to', url);
+      LLA.log('no unread control anywhere; falling back to', url);
       location.assign(url);
-    }
-    // Let LinkedIn re-render before reading the new state back.
-    setTimeout(() => renderHint(), 400);
+    });
   }
 
   /* ---------- Conversation navigation ---------- */
