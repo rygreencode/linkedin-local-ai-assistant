@@ -1,2 +1,6 @@
 .DS_Store
 *.log
+
+# Personal configuration — never committed.
+.env
+config.local.json

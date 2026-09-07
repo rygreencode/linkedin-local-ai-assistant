@@ -10,7 +10,7 @@ globalThis.LLA_DEFAULT_SETTINGS = {
   company: '',
   bio: '',
   offer: '',
-  bookingLink: 'https://cal.com/example/intro',
+  bookingLink: '',
   guidelines: 'Keep replies under 3 sentences. Warm but direct. Never invent facts about the recipient.',
   styleSamples: [],
   selectorOverrides: {},

@@ -58,9 +58,9 @@ window.chrome = {
   // Clearing it must actually clear it, not fall back to the shipped default
   $('bookingLink').value = '';
   $('saveBooking').click(); await wait(80);
-  out.push({ case: 'clearing really clears (no fallback to shipped default)',
+  out.push({ case: 'clearing really clears (no fallback)',
              saved: JSON.stringify(window.__store.settings.bookingLink),
-             notRyansLink: window.__store.settings.bookingLink !== globalThis.LLA_DEFAULT_SETTINGS.bookingLink,
+             stayedEmpty: window.__store.settings.bookingLink === '',
              inUse: $('bookingCurrent').textContent });
 
   $('results').textContent = JSON.stringify(out, null, 2);

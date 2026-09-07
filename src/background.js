@@ -109,8 +109,39 @@ async function reinjectOpenTabs() {
   }
 }
 
-chrome.runtime.onInstalled.addListener(reinjectOpenTabs);
-chrome.runtime.onStartup.addListener(reinjectOpenTabs);
+/* Seed settings from config.local.json, generated from .env by
+   scripts/apply_env.py. The file is gitignored and absent for anyone who has not
+   run that script, in which case this is a no-op — nothing personal ships in the
+   repository. A value here only fills a setting the user has never set; once
+   they save anything, their choice wins for good. */
+async function seedFromLocalConfig() {
+  let config;
+  try {
+    const res = await fetch(chrome.runtime.getURL('config.local.json'));
+    if (!res.ok) return;
+    config = await res.json();
+  } catch {
+    return; // no local config — expected on a fresh clone
+  }
+
+  const stored = (await chrome.storage.local.get('settings')).settings || {};
+  const patch = {};
+  for (const [key, value] of Object.entries(config)) {
+    if (value !== '' && stored[key] === undefined) patch[key] = value;
+  }
+  if (!Object.keys(patch).length) return;
+
+  await chrome.storage.local.set({ settings: { ...stored, ...patch } });
+  console.log('[LLA] seeded from config.local.json:', Object.keys(patch).join(', '));
+}
+
+async function onInstalledOrStartup() {
+  await seedFromLocalConfig();
+  await reinjectOpenTabs();
+}
+
+chrome.runtime.onInstalled.addListener(onInstalledOrStartup);
+chrome.runtime.onStartup.addListener(onInstalledOrStartup);
 
 /* ---------- Idle shutdown ----------
    Stop the server once no LinkedIn tab is left. The host only ever kills the pid

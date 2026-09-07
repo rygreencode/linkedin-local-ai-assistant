@@ -142,7 +142,28 @@ The script prints the ID it computed. If it disagrees with what
 python3 native/install_host.py <id-from-chrome>
 ```
 
-### 4. Fill in your settings
+### 4. Add your own configuration
+
+```bash
+cp .env.example .env
+# put your booking link in .env, then:
+python3 scripts/apply_env.py
+```
+
+A Chrome extension cannot read a `.env` file — there is no filesystem access from
+a content script or service worker. So `.env` is a build-time source:
+`apply_env.py` compiles it into `config.local.json`, which the service worker
+fetches out of its own package on install and uses to seed settings.
+
+**Both `.env` and `config.local.json` are gitignored.** Nothing personal is in the
+repository — `defaults.js` ships an empty booking link, and a clone with no `.env`
+simply starts blank.
+
+Seeded values only fill a setting you have never set. Once you save anything in
+the popup or options page, your saved value wins and `.env` is ignored. Re-run
+`apply_env.py` and reload the extension after editing `.env`.
+
+### 5. Fill in your settings
 
 Click the extension icon → **Settings**.
 
@@ -229,23 +250,24 @@ ran twice.
 
 ### Changing the meeting link
 
-The popup has a **Meeting link** field under DOM diagnostics: it shows the link
-currently in use, and editing it and pressing **Save** (or Enter) takes effect
-immediately. The same field lives on the options page. Both write the same
-`bookingLink` setting.
+Two ways in, both writing the same `bookingLink` setting:
 
-Only an absolute `http(s)` URL is accepted — a bare `cal.com/you` would paste
-into the composer as broken text. Clearing the field is allowed and disables the
-feature; the popup then says so rather than leaving you guessing.
+- **`.env`** — `BOOKING_LINK=…` then `python3 scripts/apply_env.py`. Seeds the
+  setting on a fresh install. Good for a first run or a new machine.
+- **The popup** — a **Meeting link** field under DOM diagnostics showing the link
+  currently in use. Edit, press **Save** or Enter, effective immediately. The same
+  field is on the options page.
+
+A saved value always beats `.env`, which only fills a setting never set.
+
+Only an absolute `http(s)` URL is accepted — a bare `cal.com/you` would paste into
+the composer as broken text. Clearing the field is allowed and disables the
+feature; the popup says so rather than leaving you guessing.
 
 > Clearing it really clears it. The paste path used to fall back to the link
-> shipped in `defaults.js` when the setting was empty, so a second user who
-> cleared the field would silently keep pasting the original author's booking
-> link. There is no fallback now.
-
-**If you are not the original author**, note that `defaults.js` still ships a
-personal HubSpot link as the default value. Replace it there, or just set your
-own in the popup — the stored setting always wins.
+> shipped in `defaults.js`, so a second user who cleared the field would silently
+> keep pasting the original author's link. There is no fallback now, and no link
+> ships in the repository at all.
 
 ### Shortcut reminder
 
@@ -298,7 +320,7 @@ All settings live in `chrome.storage.local` and are edited on the options page.
 | `name`, `company` | who the reply is from |
 | `bio` | "About you" |
 | `offer` | used when someone asks what you do |
-| `bookingLink` | what **Add meeting link** / `⌥M` pastes, and offered to the model when a draft proposes a meeting. Editable from the popup as well as here |
+| `bookingLink` | what **Add meeting link** / `⌥M` pastes, and offered to the model when a draft proposes a meeting. Empty by default; set it in `.env`, the popup, or here |
 
 ### Voice
 
@@ -392,6 +414,8 @@ accounts restricted.
   `localhost:11434` and nowhere else.
 - **Storage is local.** `chrome.storage.local`, not `chrome.storage.sync` — your
   bio and style samples are not pushed through your Google account.
+- **Nothing personal is committed.** `.env` and the generated `config.local.json`
+  are gitignored, and the repository ships no booking link, name, or company.
 
 ---
 
@@ -453,6 +477,9 @@ src/
 native/
   ollama_launcher.py   native messaging host: status / start / stop
   install_host.py      registers the host, computes the extension ID
+scripts/
+  apply_env.py         compiles .env into config.local.json
+.env.example           template; copy to .env (gitignored)
 test/
   composer-fixture.html  contenteditable harness for insertion behaviour
   messaging/index.html   unread-filter toggle harness (must be served at /messaging/)
@@ -562,7 +589,7 @@ the console. Covered cases:
 `test/popup-fixture.html` drives the real `popup.html` and `popup.js` against a
 stubbed `chrome` API, covering the meeting-link field: it shows the stored link,
 rejects a bare domain without saving, saves a new link, and — the case that
-matters — clears to empty rather than falling back to the shipped default. It
+matters — clears to empty rather than re-filling itself. It
 loads the shipping files by path, so it cannot drift from them. Serve the
 repository root rather than `test/`:
 
