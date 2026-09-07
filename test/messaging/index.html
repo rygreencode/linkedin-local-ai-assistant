@@ -12,6 +12,8 @@ pre{background:#eee;padding:10px;margin-top:14px}</style>
   <li class="msg-conversation-listitem"><a href="/messaging/thread/bbb/" class="msg-conversation-listitem__link">Blair Chen</a></li>
   <li class="msg-conversation-listitem"><a href="/messaging/thread/ccc/" class="msg-conversation-listitem__link">Casey Wu</a></li>
 </ul>
+<div id="composer" class="msg-form__contenteditable" contenteditable="true" role="textbox"
+     style="border:1px solid #999;min-height:40px;padding:6px;margin:10px 0;width:280px"></div>
 <pre id="out">ready</pre>
 </div>
 <script>
@@ -99,6 +101,53 @@ function nextConversation() {
   lastNavIndex = current === -1 ? 0 : current + 1;
   return 'moved to ' + clickable.textContent.trim();
 }
+// Mirrors focusComposerAfterNavigation() from content.js
+function focusComposerAfterNavigation(previousThreadId, timeoutMs, cb) {
+  const started = Date.now();
+  const focusIt = () => {
+    const el = document.querySelector('div[contenteditable="true"][role="textbox"]');
+    if (el && el.getBoundingClientRect().height > 0) {
+      el.focus();
+      const sel = window.getSelection(); const r = document.createRange();
+      r.selectNodeContents(el); r.collapse(false);
+      sel.removeAllRanges(); sel.addRange(r);
+      return true;
+    }
+    return false;
+  };
+  const poll = () => {
+    const arrived = activeThreadId() !== previousThreadId;
+    if ((arrived && focusIt()) || Date.now() - started > timeoutMs) {
+      if (!arrived) focusIt();
+      cb({ arrived, focused: document.activeElement?.id === 'composer' || document.querySelector('#composer') === document.activeElement });
+      return;
+    }
+    setTimeout(poll, 40);
+  };
+  setTimeout(poll, 40);
+}
+
+window.runFocusTest = function () {
+  return new Promise((resolve) => {
+    const out = [];
+    document.body.focus();
+    CURRENT_PATH = '/messaging/thread/bbb/';
+    // The new thread lands 200ms after the click, as LinkedIn would render it.
+    setTimeout(() => { CURRENT_PATH = '/messaging/thread/ccc/'; }, 200);
+    focusComposerAfterNavigation('/messaging/thread/bbb/' && activeThreadId(), 2000, (r1) => {
+      out.push({ case: 'thread changes, composer focused', ...r1 });
+      // Now the thread never changes: it should still focus after the timeout.
+      document.getElementById('composer').blur();
+      const before = activeThreadId();
+      focusComposerAfterNavigation(before, 400, (r2) => {
+        out.push({ case: 'thread never changes, focuses on timeout', ...r2 });
+        document.getElementById('out').textContent = JSON.stringify(out, null, 2);
+        resolve(out);
+      });
+    });
+  });
+};
+
 window.runNavTests = function () {
   const r = [];
   const reset = (path) => { CURRENT_PATH = path; lastNavIndex = null; };

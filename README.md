@@ -204,14 +204,33 @@ reopen the newest conversation — which looks like the list scrolling *up*.
 It **stops at the last conversation** rather than wrapping, and opens the first
 row if nothing is selected and nothing has been navigated yet.
 
+After moving, the caret is returned to the composer of the newly opened thread so
+you can start typing immediately. It waits for the thread id in the URL to change
+before focusing — focusing sooner would land on the outgoing thread's composer —
+and focuses anyway after 2.5s if the URL never changes.
+
+### Why the bar sometimes did not appear
+
+Worth recording, because the failure was intermittent and the cause was not where
+it looked. The button bar is mounted on load and re-mounted from a
+`MutationObserver`, which was a plain 300ms debounce. LinkedIn mutates the DOM
+continuously — presence dots, typing indicators, lazy images, the virtualised
+conversation list — so every tick reset the timer and it could **never** fire. If
+the first `mount()` ran before the composer had rendered, nothing ever retried.
+
+The observer now debounces with a **max wait**: 300ms of quiet, but a guaranteed
+run at least once a second however busy the page is. Reproduced and fixed under a
+simulated mutation storm — the old scheduler ran 0 times in 3 seconds, the new one
+ran twice.
+
 ### Shortcut reminder
 
 A single bubble carries every shortcut, one per row, with the unread filter's
 live state:
 
 ```
-⌥U unread [on]      ×
-⌥N next conversation
+⌥u unread [on]      ×
+⌥n next conversation
 ─────────────────────
 ⌘↩ send (LinkedIn)
 ```

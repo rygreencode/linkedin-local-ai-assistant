@@ -135,8 +135,8 @@
         </style>
         <div class="chip">
           <span class="x" title="Hide (re-enable in Settings)">&times;</span>
-          <div class="row"><kbd>⌥U</kbd> unread <span class="state off">off</span></div>
-          <div class="row"><kbd>⌥N</kbd> next conversation</div>
+          <div class="row"><kbd>⌥u</kbd> unread <span class="state off">off</span></div>
+          <div class="row"><kbd>⌥n</kbd> next conversation</div>
           <div class="row native"><kbd>⌘↩</kbd> send (LinkedIn)</div>
         </div>`;
       shadow.querySelector('.x').addEventListener('click', () => {
@@ -463,8 +463,45 @@
 
     LLA.log('clicking', clickable.tagName, clickable.className, '→', (clickable.textContent || '').trim().slice(0, 40));
     lastNavIndex = current === -1 ? 0 : current + 1;
+    const previousThreadId = activeThreadId();
     clickable.click();
     target.scrollIntoView({ block: 'nearest' });
+    focusComposerAfterNavigation(previousThreadId);
+  }
+
+  /* After ⌥N the thread swaps out. Put the caret back in the composer so the
+     user can start typing straight away, once the new thread has rendered. */
+  function focusComposerAfterNavigation(previousThreadId, timeoutMs = 2500) {
+    const started = Date.now();
+
+    const focusIt = () => {
+      const hit = LLA.resolve('chatInput');
+      if (hit?.el && hit.el.getBoundingClientRect().height > 0) {
+        hit.el.focus();
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(hit.el);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        LLA.log('composer focused after navigation');
+        return true;
+      }
+      return false;
+    };
+
+    const poll = () => {
+      const arrived = activeThreadId() !== previousThreadId;
+      // Wait for the new thread before focusing, or the old composer gets it.
+      if ((arrived && focusIt()) || Date.now() - started > timeoutMs) {
+        if (!arrived) LLA.log('thread did not change within', timeoutMs, 'ms; focusing anyway');
+        if (!arrived) focusIt();
+        return;
+      }
+      setTimeout(poll, 120);
+    };
+
+    setTimeout(poll, 120);
   }
 
   /* ---------- Auto-start the engine when you land in Messages ---------- */
@@ -517,14 +554,34 @@
   /* ---------- Lifecycle: LinkedIn is an SPA, so re-mount on DOM churn ---------- */
 
   let pending = null;
-  const observer = new MutationObserver(() => {
+  let lastSync = 0;
+  const SYNC_DEBOUNCE_MS = 300;
+  const SYNC_MAX_WAIT_MS = 1000;
+
+  function syncNow() {
     clearTimeout(pending);
-    pending = setTimeout(() => {
-      mount();
-      renderHint();
-      maybeAutoStart();
-    }, 300);
-  });
+    pending = null;
+    lastSync = Date.now();
+    mount();
+    renderHint();
+    maybeAutoStart();
+  }
+
+  /* A plain debounce starves here: LinkedIn mutates the DOM continuously
+     (presence dots, typing indicators, lazy images, the virtualised list), so
+     every tick reset the timer and it could never fire. If the first mount()
+     ran before the composer existed, the bar then never appeared. Guarantee a
+     run at least every SYNC_MAX_WAIT_MS however busy the page is. */
+  function scheduleSync() {
+    if (Date.now() - lastSync >= SYNC_MAX_WAIT_MS) {
+      syncNow();
+      return;
+    }
+    clearTimeout(pending);
+    pending = setTimeout(syncNow, SYNC_DEBOUNCE_MS);
+  }
+
+  const observer = new MutationObserver(scheduleSync);
 
   function onStorageChanged(changes) {
     if (changes.settings) LLA.loadSettings();
@@ -548,9 +605,7 @@
   };
 
   LLA.loadSettings().then(() => {
-    mount();
-    renderHint();
-    maybeAutoStart();
+    syncNow();
     observer.observe(document.body, { childList: true, subtree: true });
     chrome.storage.onChanged.addListener(onStorageChanged);
     LLA.log('content script ready');
