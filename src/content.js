@@ -385,6 +385,16 @@
     return null;
   }
 
+  function unreadFilterIsOn(el) {
+    if (el) {
+      const pressed =
+        el.getAttribute('aria-pressed') || el.getAttribute('aria-checked') || el.getAttribute('aria-selected');
+      if (pressed !== null) return pressed === 'true';
+      if (Array.from(el.classList).some((c) => /selected|active/.test(c))) return true;
+    }
+    return /[?&]filter=unread/.test(location.search);
+  }
+
   /* LinkedIn keeps the filters behind a dropdown in some layouts, so the Unread
      item does not exist until the menu is open. Open it, then look again. */
   function findFilterMenuTrigger() {
@@ -658,9 +668,16 @@
     clearTimeout(pending);
     pending = null;
     lastSync = Date.now();
-    mount();
-    renderHint();
-    maybeAutoStart();
+    for (const step of [mount, renderHint, maybeAutoStart]) {
+      try {
+        step();
+      } catch (err) {
+        // An exception here used to abort the whole tick — and, on the first
+        // run, prevent the observer ever being attached, so the bar never
+        // appeared again. Each step now fails alone.
+        console.error(`[LLA] ${step.name}() failed:`, err);
+      }
+    }
   }
 
   /* A plain debounce starves here: LinkedIn mutates the DOM continuously
@@ -701,8 +718,8 @@
   };
 
   LLA.loadSettings().then(() => {
-    syncNow();
     observer.observe(document.body, { childList: true, subtree: true });
+    syncNow();
     chrome.storage.onChanged.addListener(onStorageChanged);
     LLA.log('content script ready');
   });

@@ -75,6 +75,31 @@ node -e "globalThis.LLA={settings:{guidelines:'Under 3 sentences.',styleSamples:
 
 ---
 
+## Static checks
+
+`node --check` validates syntax only, so a call to a function that has been
+deleted passes cleanly and fails at runtime. That happened once: a region was
+spliced out of `content.js` by index and took `unreadFilterIsOn` with it. The
+content script then threw during its first sync, before the MutationObserver was
+attached — so the button bar never appeared and never retried.
+
+```bash
+python3 scripts/check_refs.py
+```
+
+Pools every definition across `src/` (content scripts share one global scope) and
+reports bare calls with no definition anywhere. Run it alongside `node --check`
+before committing.
+
+Two lessons are baked into the code as a result:
+
+- `syncNow()` runs `mount`, `renderHint` and `maybeAutoStart` each in its own
+  `try`/`catch`, so one broken step cannot take the others down
+- the observer is attached **before** the first sync, so a failing first run can
+  never leave the page without a retry
+
+---
+
 ## Performance
 
 Measured with `qwen2.5:3b` on Apple silicon:
