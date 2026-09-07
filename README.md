@@ -82,7 +82,7 @@ configuration correct.
 | macOS | tested on Darwin 25.x; the native host is macOS-specific |
 | Chrome | or any Chromium browser (Chromium, Brave, Chrome Canary) |
 | [Ollama](https://ollama.com) | `brew install ollama` |
-| Python 3 | for the native messaging host — any 3.8+ |
+| Python 3 | for the native messaging host and `scripts/apply_env.py` — any 3.8+ |
 
 No Node, no npm, no bundler. The extension is plain ES2020 JavaScript loaded
 directly by Chrome.
@@ -480,6 +480,8 @@ native/
 scripts/
   apply_env.py         compiles .env into config.local.json
 .env.example           template; copy to .env (gitignored)
+.env                   your values — gitignored, never committed
+config.local.json      generated from .env — gitignored, fetched by the worker
 test/
   composer-fixture.html  contenteditable harness for insertion behaviour
   messaging/index.html   unread-filter toggle harness (must be served at /messaging/)
@@ -553,6 +555,21 @@ The popup names the model and lists what is installed. Pull it, or change
 That tab's content script was orphaned by an extension reload. It should
 self-heal via the teardown handshake; if the message persists, reload the tab.
 
+### The button bar does not appear
+
+Check the popup's **Compose box (UI anchor)** row. FAILED means the selector needs
+rebinding — hit **Pick** and click LinkedIn's compose box.
+
+If it says OK and the bar is still missing, reload the tab. An earlier version
+could miss the mount entirely on a busy page; see
+[Why the bar sometimes did not appear](#why-the-bar-sometimes-did-not-appear).
+
+### "No meeting link set"
+
+Nothing is stored in `bookingLink`. Set it in the popup's **Meeting link** field,
+or in `.env` followed by `python3 scripts/apply_env.py` and an extension reload.
+No link ships with the repository, so this is expected on a fresh clone.
+
 ### Drafts attribute messages to the wrong person
 
 The sender heuristic in `src/scraper.js` relies on LinkedIn's `--other` class
@@ -618,6 +635,13 @@ acts under `/messaging`. Call `runTests()`:
 | URL points at the last row | stops, does not wrap |
 | URL points at the first row | moves to the second |
 | Detection fails, three presses | walks down three rows, does not reopen the top |
+
+`runFocusTest()` on the same page covers the post-navigation caret:
+
+| Case | Expected |
+| --- | --- |
+| Thread changes | composer of the new thread takes focus |
+| Thread never changes | focuses anyway once the timeout elapses |
 
 The prompt-assembly layer is testable in plain Node, since it touches no DOM:
 
