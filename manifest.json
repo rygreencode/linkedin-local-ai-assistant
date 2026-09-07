@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Local LinkedIn AI Assistant",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Privacy-first LinkedIn reply drafting via a local Ollama server. Nothing leaves your machine.",
   "permissions": [
     "storage",

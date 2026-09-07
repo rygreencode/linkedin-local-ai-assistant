@@ -7,9 +7,9 @@ pre{background:#eee;padding:10px;margin-top:14px}</style>
 <h3>Fake LinkedIn conversation filters</h3>
 <div id="filters"></div>
 <ul id="convos" style="list-style:none;padding:0;margin:14px 0;width:280px">
-  <li class="msg-conversation-listitem"><a href="/messaging/thread/aaa/" class="msg-conversation-listitem__link">Alex Rivera</a></li>
-  <li class="msg-conversation-listitem"><a href="/messaging/thread/bbb/" class="msg-conversation-listitem__link">Blair Chen</a></li>
-  <li class="msg-conversation-listitem"><a href="/messaging/thread/ccc/" class="msg-conversation-listitem__link">Casey Wu</a></li>
+  <li class="msg-conversation-listitem"><a href="/in/alex-rivera/">avatar</a><a href="/messaging/thread/aaa/" class="msg-conversation-listitem__link">Alex Rivera</a></li>
+  <li class="msg-conversation-listitem"><a href="/in/blair-chen/">avatar</a><a href="/messaging/thread/bbb/" class="msg-conversation-listitem__link">Blair Chen</a></li>
+  <li class="msg-conversation-listitem"><a href="/in/casey-wu/">avatar</a><a href="/messaging/thread/ccc/" class="msg-conversation-listitem__link">Casey Wu</a></li>
 </ul>
 <div id="composer" class="msg-form__contenteditable" contenteditable="true" role="textbox"
      style="border:1px solid #999;min-height:40px;padding:6px;margin:10px 0;width:280px"></div>
@@ -160,10 +160,11 @@ LLA.resolveAll = function (key) {
 let CURRENT_PATH = '/messaging/';          // stands in for location.pathname
 let lastNavIndex = null;
 
+const THREAD_LINK = 'a[href*="/messaging/thread/"]';
 function conversationItems() {
-  return LLA.resolveAll('conversationItem').nodes.filter(el => {
-    const r = el.getBoundingClientRect(); return r.height > 0 && r.width > 0;
-  });
+  const visible = LLA.resolveAll('conversationItem').nodes.filter(el => isVisible(el));
+  const withThread = visible.filter(el => el.querySelector(THREAD_LINK));
+  return withThread.length ? withThread : visible;
 }
 function activeThreadId(pathname) {
   const m = (pathname || CURRENT_PATH).match(/\/messaging\/thread\/([^/?#]+)/);
@@ -189,11 +190,14 @@ function nextConversation() {
   if (current === -1 && lastNavIndex !== null && lastNavIndex < items.length) current = lastNavIndex;
   const target = current === -1 ? items[0] : items[current + 1];
   if (!target) return 'at last';
-  const clickable = target.querySelector('a, [role="link"], .msg-conversation-listitem__link') || target;
+  const clickable = target.querySelector(THREAD_LINK)
+    || target.querySelector('.msg-conversation-listitem__link')
+    || target.querySelector('[role="link"], button')
+    || target;
   const label = ((clickable.getAttribute('aria-label')||'')+' '+(clickable.textContent||'')).toLowerCase();
   if (/\bsend\b/.test(label)) return 'refused: send control';
   lastNavIndex = current === -1 ? 0 : current + 1;
-  return 'moved to ' + clickable.textContent.trim();
+  return 'moved to ' + (clickable.getAttribute('href') || clickable.textContent.trim());
 }
 // Mirrors focusComposerAfterNavigation() from content.js
 function focusComposerAfterNavigation(previousThreadId, timeoutMs, cb) {
@@ -244,6 +248,17 @@ window.runFocusTest = function () {
 
 window.runNavTests = function () {
   const r = [];
+  // The reported failure: rows whose first anchor is the avatar profile link.
+  r.push({ case: 'clicks the thread link, not the avatar',
+           target: (() => { CURRENT_PATH = '/messaging/thread/aaa/'; lastNavIndex = null;
+                            return nextConversation(); })() });
+  // A list of non-conversation rows must not be treated as conversations.
+  const stray = document.createElement('ul');
+  stray.innerHTML = '<li>not a conversation</li>';
+  document.getElementById('convos').parentElement.appendChild(stray);
+  r.push({ case: 'ignores rows with no thread link',
+           usableRows: conversationItems().length });
+  stray.remove();
   const reset = (path) => { CURRENT_PATH = path; lastNavIndex = null; };
 
   reset('/messaging/thread/bbb/');

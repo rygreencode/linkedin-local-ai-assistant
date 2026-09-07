@@ -500,6 +500,8 @@
 
   /* ---------- Conversation navigation ---------- */
 
+  const THREAD_LINK = 'a[href*="/messaging/thread/"]';
+
   function conversationItems() {
     const { nodes, selector } = LLA.resolveAll('conversationItem');
     // offsetParent is null for anything inside a position:fixed ancestor even
@@ -508,8 +510,14 @@
       const r = el.getBoundingClientRect();
       return r.height > 0 && r.width > 0;
     });
-    LLA.log(`conversation rows: ${visible.length} visible of ${nodes.length} matched by ${selector}`);
-    return visible;
+    // A real conversation row links to a thread. The broadest tier can match
+    // unrelated lists, so prefer rows that carry that link when any do.
+    const withThread = visible.filter((el) => el.querySelector(THREAD_LINK));
+    const rows = withThread.length ? withThread : visible;
+    LLA.log(
+      `conversation rows: ${rows.length} usable (${visible.length} visible of ${nodes.length} matched by ${selector})`
+    );
+    return rows;
   }
 
   /* The open thread's id is in the URL — /messaging/thread/<id>/ — which is far
@@ -540,6 +548,36 @@
     return /is-selected|--active|\bactive\b/.test(classes);
   }
 
+  LLA.debugNav = function () {
+    const { nodes, selector } = LLA.resolveAll('conversationItem');
+    const rows = conversationItems();
+    const describe = (el) => {
+      const thread = el.querySelector(THREAD_LINK);
+      const first = el.querySelector('a');
+      return {
+        active: isActiveConversation(el),
+        threadHref: thread ? thread.getAttribute('href') : null,
+        firstAnchorHref: first ? first.getAttribute('href') : null,
+        wouldClick: (
+          el.querySelector(THREAD_LINK) ||
+          el.querySelector('.msg-conversation-listitem__link') ||
+          el.querySelector('[role="link"], button') ||
+          el
+        ).getAttribute?.('href') || '(element, not a link)',
+        text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40)
+      };
+    };
+    return {
+      url: location.pathname,
+      openThreadId: activeThreadId(),
+      selector,
+      matched: nodes.length,
+      usableRows: rows.length,
+      activeIndex: rows.findIndex(isActiveConversation),
+      rows: rows.slice(0, 8).map(describe)
+    };
+  };
+
   let lastNavIndex = null;
 
   function nextConversation() {
@@ -566,7 +604,11 @@
       return;
     }
 
-    const clickable = target.querySelector('a, [role="link"], .msg-conversation-listitem__link') || target;
+    const clickable =
+      target.querySelector(THREAD_LINK) ||
+      target.querySelector('.msg-conversation-listitem__link') ||
+      target.querySelector('[role="link"], button') ||
+      target;
     if (looksLikeSendControl(clickable)) {
       LLA.log('refusing to click a control labelled "send"', clickable);
       return;

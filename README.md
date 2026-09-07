@@ -480,6 +480,23 @@ If it says OK and the bar is still missing, reload the tab. An earlier version
 could miss the mount entirely on a busy page; see
 [Why the bar sometimes did not appear](#why-the-bar-sometimes-did-not-appear).
 
+### ⌥N opens a profile, or goes nowhere
+
+The row was right, the element clicked inside it was not. A LinkedIn conversation
+row contains the avatar's profile link *before* the thread link, so taking the
+first anchor navigated to `/in/<someone>`. It now clicks
+`a[href*="/messaging/thread/"]` specifically, and rows are filtered to those that
+carry such a link — which also stops the broadest selector tier
+(`div[role="main"] ul li`) treating an unrelated list as conversations.
+
+```js
+LLA.debugNav()
+```
+
+Reports the matched selector, how many rows are usable, which is active, and per
+row: the thread href, the *first* anchor's href, and what would actually be
+clicked. If `wouldClick` is not a `/messaging/thread/` URL, that is the bug.
+
 ### The unread filter does nothing, or marks a thread unread
 
 `⌥u` resolves LinkedIn's own filter control. Three things can go wrong, and one
