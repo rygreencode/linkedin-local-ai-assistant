@@ -63,6 +63,8 @@ globalThis.LLA_SELECTOR_TIERS = {
   // pill happens to come first — Jobs, Focused, anything — and clicks it.
   unreadFilter: [
     'button[aria-label="Unread"]',
+    '.artdeco-pill-choice-group button[aria-label="Unread"]',
+    '.msg-cross-pillar-inbox-filters-v3__container button[aria-label^="Unread" i]',
     '[role="radio"][aria-label="Unread"]',
     '[role="menuitemradio"][aria-label="Unread"]',
     'button[aria-label^="Unread" i]',

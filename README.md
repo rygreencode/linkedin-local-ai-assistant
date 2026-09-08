@@ -224,6 +224,14 @@ if LinkedIn's markup has moved.
 oldest, since LinkedIn sorts most-recent-first — for working down the inbox
 without the mouse.
 
+**Rows are the thread links themselves**, not their containers. LinkedIn has
+rewrapped conversation rows repeatedly — `li.msg-conversation-listitem`, then
+divs, then something else — and on the current layout every container selector
+matched nothing at all. The `a[href*="/messaging/thread/"]` inside a row is the
+stable part: it identifies the conversation, it is what gets compared against the
+URL, and it is what gets clicked. Container selectors remain only as a fallback
+for a layout with no thread anchors.
+
 Finding which row is currently open is the fragile part. Three strategies, in
 order:
 

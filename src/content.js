@@ -522,7 +522,29 @@
 
   const THREAD_LINK = 'a[href*="/messaging/thread/"]';
 
+  /* Rows are whatever LinkedIn wraps a thread link in, and that wrapper has
+     changed repeatedly — li, then a div, then something else. The thread link
+     itself is the stable thing: it is what identifies the conversation, what we
+     compare against the URL, and what we click. So treat the links as the rows
+     and stop modelling the container at all. Selector tiers remain as a
+     fallback for a layout that somehow has no thread anchors. */
+  function threadLinkRows() {
+    const seen = new Set();
+    return Array.from(document.querySelectorAll(THREAD_LINK)).filter((a) => {
+      if (!isVisible(a)) return false;
+      const id = activeThreadId(a.getAttribute('href') || '');
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }
+
   function conversationItems() {
+    const links = threadLinkRows();
+    if (links.length) {
+      LLA.log(`conversation rows: ${links.length} from thread links`);
+      return links;
+    }
     const { nodes, selector } = LLA.resolveAll('conversationItem');
     // offsetParent is null for anything inside a position:fixed ancestor even
     // when it is plainly visible, so measure instead.
@@ -548,9 +570,8 @@
   }
 
   function rowThreadIds(el) {
-    return Array.from(el.querySelectorAll('a[href*="/messaging/thread/"]'))
-      .map((a) => activeThreadId(a.getAttribute('href') || ''))
-      .filter(Boolean);
+    const links = el.matches?.(THREAD_LINK) ? [el] : Array.from(el.querySelectorAll(THREAD_LINK));
+    return links.map((a) => activeThreadId(a.getAttribute('href') || '')).filter(Boolean);
   }
 
   function isActiveConversation(el) {
@@ -572,7 +593,7 @@
     const { nodes, selector } = LLA.resolveAll('conversationItem');
     const rows = conversationItems();
     const describe = (el) => {
-      const thread = el.querySelector(THREAD_LINK);
+      const thread = el.matches?.(THREAD_LINK) ? el : el.querySelector(THREAD_LINK);
       const first = el.querySelector('a');
       return {
         active: isActiveConversation(el),
@@ -625,6 +646,7 @@
     }
 
     const clickable =
+      (target.matches?.(THREAD_LINK) ? target : null) ||
       target.querySelector(THREAD_LINK) ||
       target.querySelector('.msg-conversation-listitem__link') ||
       target.querySelector('[role="link"], button') ||

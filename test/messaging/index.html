@@ -161,18 +161,29 @@ let CURRENT_PATH = '/messaging/';          // stands in for location.pathname
 let lastNavIndex = null;
 
 const THREAD_LINK = 'a[href*="/messaging/thread/"]';
+function threadLinkRows() {
+  const seen = new Set();
+  return Array.from(document.querySelectorAll(THREAD_LINK)).filter(a => {
+    if (!isVisible(a)) return false;
+    const id = activeThreadId(a.getAttribute('href') || '');
+    if (!id || seen.has(id)) return false;
+    seen.add(id); return true;
+  });
+}
 function conversationItems() {
+  const links = threadLinkRows();
+  if (links.length) return links;
   const visible = LLA.resolveAll('conversationItem').nodes.filter(el => isVisible(el));
-  const withThread = visible.filter(el => el.querySelector(THREAD_LINK));
-  return withThread.length ? withThread : visible;
+  return visible.filter(el => el.querySelector(THREAD_LINK)).length
+    ? visible.filter(el => el.querySelector(THREAD_LINK)) : visible;
 }
 function activeThreadId(pathname) {
   const m = (pathname || CURRENT_PATH).match(/\/messaging\/thread\/([^/?#]+)/);
   return m ? m[1] : null;
 }
 function rowThreadIds(el) {
-  return Array.from(el.querySelectorAll('a[href*="/messaging/thread/"]'))
-    .map(a => activeThreadId(a.getAttribute('href') || '')).filter(Boolean);
+  const links = el.matches?.(THREAD_LINK) ? [el] : Array.from(el.querySelectorAll(THREAD_LINK));
+  return links.map(a => activeThreadId(a.getAttribute('href') || '')).filter(Boolean);
 }
 function isActiveConversation(el) {
   const openId = activeThreadId();
@@ -190,7 +201,8 @@ function nextConversation() {
   if (current === -1 && lastNavIndex !== null && lastNavIndex < items.length) current = lastNavIndex;
   const target = current === -1 ? items[0] : items[current + 1];
   if (!target) return 'at last';
-  const clickable = target.querySelector(THREAD_LINK)
+  const clickable = (target.matches?.(THREAD_LINK) ? target : null)
+    || target.querySelector(THREAD_LINK)
     || target.querySelector('.msg-conversation-listitem__link')
     || target.querySelector('[role="link"], button')
     || target;
@@ -252,6 +264,16 @@ window.runNavTests = function () {
   r.push({ case: 'clicks the thread link, not the avatar',
            target: (() => { CURRENT_PATH = '/messaging/thread/aaa/'; lastNavIndex = null;
                             return nextConversation(); })() });
+  // Rows wrapped in divs with no li anywhere — matches the real LinkedIn markup
+  // where every selector tier returned zero.
+  const listish = document.createElement('div');
+  listish.className = 'msg-conversations-container__conversations-list';
+  listish.innerHTML = '<div><a href="/messaging/thread/zzz/">Zed</a></div>';
+  document.body.appendChild(listish);
+  CURRENT_PATH = '/messaging/thread/ccc/'; lastNavIndex = null;
+  r.push({ case: 'rows in divs, no <li> anywhere', result: nextConversation() });
+  listish.remove();
+
   // A list of non-conversation rows must not be treated as conversations.
   const stray = document.createElement('ul');
   stray.innerHTML = '<li>not a conversation</li>';
