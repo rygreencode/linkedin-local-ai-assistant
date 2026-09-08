@@ -480,6 +480,28 @@ If it says OK and the bar is still missing, reload the tab. An earlier version
 could miss the mount entirely on a busy page; see
 [Why the bar sometimes did not appear](#why-the-bar-sometimes-did-not-appear).
 
+### A shortcut types a character instead of firing
+
+`˜` from ⌥N, `¨` from ⌥U, `µ` from ⌥M. macOS treats those combinations as dead
+keys for accent composition, and with the caret in the composer the character can
+arrive through the composition path, which `preventDefault()` on `keydown` does
+not always suppress.
+
+Claiming a hotkey now opens a 250ms window in which a stray dead-key insertion is
+cancelled. Ordinary typing is unaffected, including typing those characters
+deliberately when no shortcut was pressed.
+
+If it still happens, confirm what the page is actually receiving:
+
+```js
+LLA.probeKeys()
+```
+
+then press the shortcut. Each `keydown` and `beforeinput` is logged with `key`,
+`code`, the modifiers, `defaultPrevented` and the focused element. If no
+`keydown` appears at all, the content script is not loaded in that tab — check
+for `[LLA] v… ready` and reload the extension, not just the page.
+
 ### ⌥N opens a profile, or goes nowhere
 
 The row was right, the element clicked inside it was not. A LinkedIn conversation

@@ -683,33 +683,86 @@
 
   /* ---------- Hotkeys ---------- */
 
+  /* macOS turns ⌥N / ⌥U / ⌥E into dead keys for accent composition. With focus
+     in a text field the resulting character can arrive through the composition
+     path, which preventDefault() on keydown does not always suppress — so a
+     claimed hotkey also opens a short window in which we cancel the stray
+     insertion. ⌥N producing "˜" in the composer is exactly this. */
+  const DEAD_KEY_CHARS = /^[\u02dc\u00a8\u00b4\u02c6\u0060\u00b5\u02da]$/;
+  let suppressInsertUntil = 0;
+
+  function claimKey(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    suppressInsertUntil = Date.now() + 250;
+  }
+
+  function onStrayInsert(e) {
+    if (Date.now() > suppressInsertUntil) return;
+    const data = e.data || '';
+    if (DEAD_KEY_CHARS.test(data)) {
+      e.preventDefault();
+      e.stopPropagation();
+      LLA.log('suppressed stray dead-key insertion', JSON.stringify(data));
+    }
+  }
+
+  /* Console probe: LLA.probeKeys() then press the shortcut. */
+  LLA.probeKeys = function (count = 5) {
+    let seen = 0;
+    const log = (e) => {
+      console.log('[LLA probe]', {
+        type: e.type,
+        key: e.key,
+        code: e.code,
+        alt: e.altKey,
+        meta: e.metaKey,
+        data: e.data,
+        inputType: e.inputType,
+        defaultPrevented: e.defaultPrevented,
+        target: e.target?.tagName + (e.target?.isContentEditable ? '[contenteditable]' : '')
+      });
+      if (++seen >= count * 2) stop();
+    };
+    const stop = () => {
+      document.removeEventListener('keydown', log, true);
+      document.removeEventListener('beforeinput', log, true);
+      console.log('[LLA probe] stopped');
+    };
+    document.addEventListener('keydown', log, true);
+    document.addEventListener('beforeinput', log, true);
+    console.log(`[LLA probe] listening for ${count} keystrokes — press the shortcut now`);
+    return 'listening';
+  };
+
   function onHotkey(e) {
     const key = (e.key || '').toLowerCase();
 
     // Unread toggle. On macOS Alt+letter emits a dead key rather than the
     // letter itself, hence the e.code check alongside e.key.
     if ((key === 'u' || e.code === 'KeyU') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
+      claimKey(e);
+      LLA.log('hotkey ⌥u claimed');
       toggleUnreadFilter();
       return;
     }
 
     if ((key === 'n' || e.code === 'KeyN') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
+      claimKey(e);
+      LLA.log('hotkey ⌥n claimed');
       nextConversation();
       return;
     }
 
     if ((key === 'm' || e.code === 'KeyM') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
+      claimKey(e);
+      LLA.log('hotkey ⌥m claimed');
       insertMeetingLink();
     }
   }
 
   document.addEventListener('keydown', onHotkey, true);
+  document.addEventListener('beforeinput', onStrayInsert, true);
 
   /* ---------- Lifecycle: LinkedIn is an SPA, so re-mount on DOM churn ---------- */
 
@@ -759,6 +812,7 @@
     observer.disconnect();
     clearTimeout(pending);
     document.removeEventListener('keydown', onHotkey, true);
+    document.removeEventListener('beforeinput', onStrayInsert, true);
     try {
       chrome.storage.onChanged.removeListener(onStorageChanged);
       chrome.runtime.onMessage.removeListener(onRuntimeMessage);

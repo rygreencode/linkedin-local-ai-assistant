@@ -39,6 +39,40 @@ function insertMeetingLink(url) {
 }
 let events = 0;
 document.getElementById('box').addEventListener('input', () => events++);
+// Mirrors the dead-key suppression from content.js
+const DEAD_KEY_CHARS = /^[\u02dc\u00a8\u00b4\u02c6\u0060\u00b5\u02da]$/;
+let suppressInsertUntil = 0;
+function claimKey(e){ e.preventDefault(); e.stopPropagation(); suppressInsertUntil = Date.now() + 250; }
+function onStrayInsert(e){
+  if (Date.now() > suppressInsertUntil) return;
+  if (DEAD_KEY_CHARS.test(e.data || '')) { e.preventDefault(); e.stopPropagation(); }
+}
+document.addEventListener('beforeinput', onStrayInsert, true);
+
+window.runDeadKeyTests = function () {
+  const box = document.getElementById('box');
+  const r = [];
+  const fire = (data) => {
+    const ev = new InputEvent('beforeinput', { data, inputType: 'insertText', bubbles: true, cancelable: true });
+    box.dispatchEvent(ev);
+    return ev.defaultPrevented;
+  };
+  // No hotkey claimed: ordinary typing must pass through untouched.
+  suppressInsertUntil = 0;
+  r.push({ case: 'plain text is never suppressed', prevented: fire('a') });
+  r.push({ case: 'tilde with no hotkey passes through', prevented: fire('\u02dc') });
+  // Hotkey just claimed: the dead-key character must be cancelled.
+  claimKey(new KeyboardEvent('keydown', { cancelable: true }));
+  r.push({ case: 'tilde right after a claimed hotkey', prevented: fire('\u02dc') });
+  r.push({ case: 'umlaut right after a claimed hotkey', prevented: fire('\u00a8') });
+  r.push({ case: 'real text still passes inside the window', prevented: fire('hello') });
+  // Window expires.
+  suppressInsertUntil = Date.now() - 1;
+  r.push({ case: 'tilde after the window expires', prevented: fire('\u02dc') });
+  document.getElementById('out').textContent = JSON.stringify(r, null, 2);
+  return r;
+};
+
 window.runTests = function () {
   const URL = 'https://cal.com/example/intro';
   const box = document.getElementById('box');
