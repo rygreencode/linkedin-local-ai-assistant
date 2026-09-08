@@ -639,19 +639,22 @@
     return links.map((a) => activeThreadId(a.getAttribute('href') || '')).filter(Boolean);
   }
 
+  /* LinkedIn marks the open conversation with a class on a *descendant* of the
+     row — msg-conversations-container__convo-item-link--active on the inner
+     link — not on the row itself and not on its first child. Checking only the
+     row and its first child found nothing, so every press reopened row 0. */
+  const ACTIVE_MARKER = '[class*="--active"], [class*="is-selected"], [class*="is-active"], [aria-current]';
+
   function isActiveConversation(el) {
     const openId = activeThreadId();
     if (openId) {
       const ids = rowThreadIds(el);
-      if (ids.length) return ids.includes(openId);
+      if (ids.length) return ids.includes(openId); // only decisive when rows link to threads
     }
     if (el.getAttribute('aria-current')) return true;
-    if (el.querySelector('[aria-current]')) return true;
-    const classes = [el, el.firstElementChild]
-      .filter(Boolean)
-      .map((n) => (typeof n.className === 'string' ? n.className : ''))
-      .join(' ');
-    return /is-selected|--active|\bactive\b/.test(classes);
+    if (el.matches?.(ACTIVE_MARKER) || el.querySelector(ACTIVE_MARKER)) return true;
+    const own = typeof el.className === 'string' ? el.className : '';
+    return /is-selected|--active|\bactive\b/.test(own);
   }
 
   LLA.debugNav = function () {

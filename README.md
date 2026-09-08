@@ -246,11 +246,17 @@ for a layout with no thread anchors.
 Finding which row is currently open is the fragile part. Three strategies, in
 order:
 
-1. **The URL.** `/messaging/thread/<id>/` carries the open thread's id; the row
-   whose link points at that id is the active one. Independent of CSS classes,
-   so this survives LinkedIn restyling.
+1. **The URL.** `/messaging/thread/<id>/` carries the open thread's id; if rows
+   link to threads, the row pointing at that id is the active one. Independent of
+   CSS classes — but the current layout has no thread anchors at all, so this
+   strategy sits idle there.
 2. `aria-current` on the row or a descendant.
-3. LinkedIn's `--is-selected` / `active` class names.
+3. An active-marker class **anywhere inside the row**, matched loosely:
+   `[class*="--active"]`, `[class*="is-selected"]`, `[class*="is-active"]`.
+   LinkedIn puts `msg-conversations-container__convo-item-link--active` on the
+   row's inner link, not on the row or its first child — checking only those two
+   found nothing, every press reopened row 0, and the symptom read as the list
+   scrolling upward.
 
 If all three miss, it advances from the last row it moved to rather than falling
 back to the top of the list. Without that, a detection failure makes every press
