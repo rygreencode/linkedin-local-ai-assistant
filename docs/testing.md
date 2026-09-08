@@ -85,7 +85,15 @@ attached — so the button bar never appeared and never retried.
 
 ```bash
 python3 scripts/check_refs.py
+node scripts/load_smoke.js
 ```
+
+`load_smoke.js` goes further than a name check: it loads the content scripts in
+manifest order inside a `vm` context with stubbed DOM and `chrome` APIs, waits
+for the settings promise, and reports anything the first sync logs as an error.
+That exercises the real execution path — hoisting, temporal dead zones, scope —
+without a browser. A missing function surfaces as a failing first sync rather
+than as a mystery on a live page.
 
 Pools every definition across `src/` (content scripts share one global scope) and
 reports bare calls with no definition anywhere. Run it alongside `node --check`
