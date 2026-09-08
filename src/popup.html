@@ -28,6 +28,8 @@
   #bookingCurrent.unset { color: #8a5300; }
   #bookingSaved { color: #14632c; font-size: 11px; opacity: 0; transition: opacity .2s; }
   #bookingSaved.show { opacity: 1; }
+  #diagCopied { font-size: 11px; color: #14632c; margin-top: 6px; min-height: 13px; }
+  #diagCopied.err { color: #b3261e; }
 </style>
 <h1>Inference engine</h1>
 <div id="engine">Checking…</div>
@@ -45,6 +47,8 @@
 <footer>
   <button id="recheck">Re-check</button>
   <button id="options">Settings</button>
+  <button id="copyDiag" title="Copy a full diagnostic report to the clipboard">Copy diagnostics</button>
 </footer>
+<div id="diagCopied"></div>
 <script src="defaults.js"></script>
 <script src="popup.js"></script>

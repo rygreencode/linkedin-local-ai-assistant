@@ -7,6 +7,8 @@ pre{background:#eee;padding:10px;flex:1;white-space:pre-wrap}</style>
 <script>
 // Minimal chrome stub: in-memory storage, canned responses for the rest.
 window.__store = { settings: { bookingLink: 'https://cal.com/example/intro' } };
+window.__clipboard = null;
+Object.defineProperty(navigator, 'clipboard', { value: { async writeText(t) { window.__clipboard = t; } }, configurable: true });
 window.chrome = {
   storage: {
     local: {
@@ -19,7 +21,15 @@ window.chrome = {
     async sendMessage() { return { ok: true, models: ['qwen2.5:3b'], model: 'qwen2.5:3b', endpoint: 'http://localhost:11434' }; },
     openOptionsPage() {}
   },
-  tabs: { async query() { return []; }, async sendMessage() { throw new Error('no tab'); } }
+  tabs: {
+    async query() { return [{ id: 1, url: 'https://www.linkedin.com/messaging/' }]; },
+    async sendMessage(id, msg) {
+      if (msg.type === 'lla:debug-dump') {
+        return { ok: true, version: '0.3.1', url: '/messaging/', selectors: [], nav: { usableRows: 3 }, unread: { resolved: null } };
+      }
+      throw new Error('no handler');
+    }
+  }
 };
 (async () => {
   // Load the REAL popup markup and scripts, so this cannot drift from shipping code.
@@ -62,6 +72,16 @@ window.chrome = {
              saved: JSON.stringify(window.__store.settings.bookingLink),
              stayedEmpty: window.__store.settings.bookingLink === '',
              inUse: $('bookingCurrent').textContent });
+
+  // Diagnostics button
+  $('copyDiag').click(); await wait(150);
+  let copied = null;
+  try { copied = JSON.parse(window.__clipboard); } catch {}
+  out.push({ case: 'copy diagnostics fills the clipboard',
+             note: $('diagCopied').textContent,
+             hasVersion: copied?.page?.version === '0.3.1',
+             hasNav: copied?.page?.nav?.usableRows === 3,
+             hasEngine: Boolean(copied?.engine) });
 
   $('results').textContent = JSON.stringify(out, null, 2);
   window.__results = out;

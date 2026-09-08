@@ -307,6 +307,26 @@
       sendResponse({ ok: true });
       return false;
     }
+    if (msg?.type === 'lla:debug-dump') {
+      // LLA lives in the isolated world, so it is not reachable from the page
+      // console without switching execution context. Collect it here instead.
+      const safely = (label, fn) => {
+        try {
+          return fn();
+        } catch (err) {
+          return { error: `${label}: ${err.message}` };
+        }
+      };
+      sendResponse({
+        ok: true,
+        version: chrome.runtime.getManifest().version,
+        url: location.pathname,
+        selectors: safely('diagnose', () => LLA.diagnose()),
+        nav: safely('debugNav', () => LLA.debugNav()),
+        unread: safely('debugUnread', () => LLA.debugUnread())
+      });
+      return false;
+    }
     if (msg?.type === 'lla:settings-changed') {
       LLA.loadSettings();
       return false;

@@ -165,6 +165,42 @@ $('bookingLink').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') saveBooking();
 });
 
+/* One button, one paste — no console context switching required. */
+$('copyDiag').onclick = async () => {
+  const note = $('diagCopied');
+  note.classList.remove('err');
+  note.textContent = 'Collecting…';
+
+  const tab = await activeLinkedInTab();
+  const report = { generated: new Date().toISOString() };
+
+  try {
+    report.engine = await chrome.runtime.sendMessage({ type: 'lla:ping' });
+  } catch (err) {
+    report.engine = { error: err.message };
+  }
+
+  if (!tab) {
+    report.page = { error: 'No LinkedIn tab active' };
+  } else {
+    try {
+      report.page = await chrome.tabs.sendMessage(tab.id, { type: 'lla:debug-dump' });
+    } catch (err) {
+      report.page = { error: `Content script not reachable: ${err.message}` };
+    }
+  }
+
+  const text = JSON.stringify(report, null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    note.textContent = `Copied ${text.length} characters to the clipboard.`;
+  } catch {
+    note.classList.add('err');
+    note.textContent = 'Could not copy — see the console for the report.';
+    console.log(text);
+  }
+};
+
 $('recheck').onclick = () => {
   checkEngine();
   checkDom();

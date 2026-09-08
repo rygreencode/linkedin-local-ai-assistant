@@ -432,6 +432,24 @@ accounts restricted.
 
 ## Troubleshooting
 
+### Getting a diagnostic report
+
+Open the popup and press **Copy diagnostics**. That puts a JSON report on the
+clipboard: extension version, engine status, every selector's resolution, the
+conversation rows with what would be clicked in each, and the unread control.
+
+Prefer this to the console. `LLA` lives in the content script's **isolated
+world**, so it is not defined in the DevTools console by default — evaluating
+`LLA.debugNav()` there gives *"LLA is not defined"* unless you first switch the
+Console's context dropdown from `top` to the extension. The button avoids that
+entirely.
+
+> Unrelated noise worth ignoring: LinkedIn's own bundle fetches
+> `chrome-extension://invalid/` repeatedly, interleaved with its `sensorCollect`
+> telemetry — it appears to be fingerprinting installed extensions. Those failed
+> requests are not from this extension, which makes no page-context fetches at
+> all. Filter the Network panel with `-invalid`, or use the Console with `[LLA]`.
+
 ### "Native host has exited"
 
 The host process died before replying. Check the trace log:
