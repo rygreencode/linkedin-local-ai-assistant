@@ -187,11 +187,11 @@ Open a LinkedIn message thread. A bar appears above the composer.
 | **Draft reply** | — | scrape the thread, generate, **replace** composer contents |
 | **Regenerate** | — | different angle, different opening (enabled after the first draft) |
 | **Add meeting link** | `Alt + M` | **append** your booking link at the cursor, draft untouched |
-| *(unread filter)* | `Alt + U` | toggle LinkedIn's Unread filter on and off |
-| *(next conversation)* | `Alt + N` | move to the next conversation below the active one |
+| *(unread filter)* | `Alt + F` | toggle LinkedIn's Unread filter on and off |
+| *(next conversation)* | `Alt + D` | move to the next conversation below the active one |
 | *(watchdog)* | — | appears only when generation is slow: retry on the lighter model |
 
-`Alt + U`, `Alt + N` and `Alt + M` are the keyboard shortcuts. Drafting and
+`Alt + F`, `Alt + D` and `Alt + M` are the keyboard shortcuts. Drafting and
 regenerating are button-only.
 
 Unlike the other two, `Alt + M` is not restricted to `/messaging` — LinkedIn's
@@ -203,17 +203,24 @@ only when one is needed.
 
 ### Unread triage
 
-`Alt + U` (⌥U) flips LinkedIn's own **Unread** filter on and off, for mouse-free
+`Alt + F` (⌥F) flips LinkedIn's own **Unread** filter on and off, for mouse-free
 inbox triage. It resolves the filter control through the same tiered selector
 system as everything else, and falls back to driving `?filter=unread` on the URL
 if LinkedIn's markup has moved.
 
-> ⌘U was the original request, but Chrome binds it to View Source on macOS and
-> pages cannot reliably cancel browser accelerators, so ⌥U is used instead.
+> **Why not ⌘U or ⌥U.** ⌘U was the original request, but Chrome binds it to View
+> Source on macOS and pages cannot reliably cancel browser accelerators. ⌥U was
+> the next choice and turned out to be worse: it is one of macOS's Option dead
+> keys, so with the caret in the composer it types `¨` instead of firing. Every
+> binding now avoids the dead keys — `e`, `i`, `n`, `u` and backtick.
 
 ### Conversation navigation
 
-`Alt + N` (⌥N) selects the next conversation **below** the active one — the next
+> **Why not ⌥N.** Same reason as above — ⌥N is the tilde dead key, and typed `˜`
+> into the composer rather than navigating. ⌥D produces `∂`, an ordinary
+> character that `preventDefault()` suppresses cleanly.
+
+`Alt + D` (⌥D) selects the next conversation **below** the active one — the next
 oldest, since LinkedIn sorts most-recent-first — for working down the inbox
 without the mouse.
 
@@ -279,8 +286,8 @@ A single bubble carries every shortcut, one per row, with the unread filter's
 live state:
 
 ```
-⌥u unread [on]      ×
-⌥n next conversation
+⌥f unread [on]      ×
+⌥d next conversation
 ⌥m meeting link
 ─────────────────────
 ⌘↩ send (LinkedIn)
@@ -482,7 +489,7 @@ could miss the mount entirely on a busy page; see
 
 ### A shortcut types a character instead of firing
 
-`˜` from ⌥N, `¨` from ⌥U, `µ` from ⌥M. macOS treats those combinations as dead
+`˜` from ⌥D, `¨` from ⌥F, `µ` from ⌥M. macOS treats those combinations as dead
 keys for accent composition, and with the caret in the composer the character can
 arrive through the composition path, which `preventDefault()` on `keydown` does
 not always suppress.
@@ -502,7 +509,7 @@ then press the shortcut. Each `keydown` and `beforeinput` is logged with `key`,
 `keydown` appears at all, the content script is not loaded in that tab — check
 for `[LLA] v… ready` and reload the extension, not just the page.
 
-### ⌥N opens a profile, or goes nowhere
+### ⌥D opens a profile, or goes nowhere
 
 The row was right, the element clicked inside it was not. A LinkedIn conversation
 row contains the avatar's profile link *before* the thread link, so taking the
@@ -521,7 +528,7 @@ clicked. If `wouldClick` is not a `/messaging/thread/` URL, that is the bug.
 
 ### The unread filter does nothing, or marks a thread unread
 
-`⌥u` resolves LinkedIn's own filter control. Three things can go wrong, and one
+`⌥f` resolves LinkedIn's own filter control. Three things can go wrong, and one
 diagnostic distinguishes them — paste this into the console on a messaging page:
 
 ```js
@@ -541,7 +548,7 @@ candidate on the page with its label, visibility and pressed state.
   found, rather than clicking it. The popup's diagnostics show which control
   resolved, so a wrong binding is visible at a glance.
 - **`resolved` looks right but nothing happens** — the control is probably inside
-  a closed menu. `⌥u` opens the filter dropdown and retries automatically before
+  a closed menu. `⌥f` opens the filter dropdown and retries automatically before
   falling back to `?filter=unread`.
 
 ### "No meeting link set"

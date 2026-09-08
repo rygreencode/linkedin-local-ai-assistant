@@ -80,8 +80,8 @@ eight resolvable elements:
 | `messageNode` | Message bubble | the individual messages scraped |
 | `headerName` | Recipient name | recipient name for the prompt |
 | `headerSubtitle` | Recipient headline | title and company for the prompt |
-| `unreadFilter` | Unread filter | the control `⌥U` toggles |
-| `conversationItem` | Conversation list item | the rows `⌥N` walks |
+| `unreadFilter` | Unread filter | the control `⌥F` toggles |
+| `conversationItem` | Conversation list item | the rows `⌥D` walks |
 
 A user override set by the picker is stored per key in `selectorOverrides` and
 tried ahead of every built-in tier.

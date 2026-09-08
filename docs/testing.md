@@ -51,7 +51,7 @@ acts under `/messaging`. Call `runTests()`:
 | Mis-bound to a send control | **refused**, nothing clicked |
 | No control in the DOM | falls back to `?filter=unread` |
 
-`runNavTests()` on the same page covers `Alt + N`:
+`runNavTests()` on the same page covers `Alt + D`:
 
 | Case | Expected |
 | --- | --- |

@@ -135,8 +135,8 @@
         </style>
         <div class="chip">
           <span class="x" title="Hide (re-enable in Settings)">&times;</span>
-          <div class="row"><kbd>⌥u</kbd> unread <span class="state off">off</span></div>
-          <div class="row"><kbd>⌥n</kbd> next conversation</div>
+          <div class="row"><kbd>⌥f</kbd> unread <span class="state off">off</span></div>
+          <div class="row"><kbd>⌥d</kbd> next conversation</div>
           <div class="row"><kbd>⌥m</kbd> meeting link</div>
           <div class="row native"><kbd>⌘↩</kbd> send (LinkedIn)</div>
         </div>`;
@@ -622,7 +622,7 @@
     focusComposerAfterNavigation(previousThreadId);
   }
 
-  /* After ⌥N the thread swaps out. Put the caret back in the composer so the
+  /* After ⌥D the thread swaps out. Put the caret back in the composer so the
      user can start typing straight away, once the new thread has rendered. */
   function focusComposerAfterNavigation(previousThreadId, timeoutMs = 2500) {
     const started = Date.now();
@@ -683,11 +683,11 @@
 
   /* ---------- Hotkeys ---------- */
 
-  /* macOS turns ⌥N / ⌥U / ⌥E into dead keys for accent composition. With focus
-     in a text field the resulting character can arrive through the composition
-     path, which preventDefault() on keydown does not always suppress — so a
-     claimed hotkey also opens a short window in which we cancel the stray
-     insertion. ⌥N producing "˜" in the composer is exactly this. */
+  /* The shortcuts deliberately avoid macOS's Option dead keys — e, i, n, u and
+     backtick — because with focus in a text field their character arrives
+     through the composition path, which preventDefault() on keydown does not
+     always suppress. ⌥N used to type "˜" into the composer for exactly that
+     reason. This net stays as insurance for any binding added later. */
   const DEAD_KEY_CHARS = /^[\u02dc\u00a8\u00b4\u02c6\u0060\u00b5\u02da]$/;
   let suppressInsertUntil = 0;
 
@@ -740,16 +740,16 @@
 
     // Unread toggle. On macOS Alt+letter emits a dead key rather than the
     // letter itself, hence the e.code check alongside e.key.
-    if ((key === 'u' || e.code === 'KeyU') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    if ((key === 'f' || e.code === 'KeyF') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       claimKey(e);
-      LLA.log('hotkey ⌥u claimed');
+      LLA.log('hotkey ⌥f claimed');
       toggleUnreadFilter();
       return;
     }
 
-    if ((key === 'n' || e.code === 'KeyN') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    if ((key === 'd' || e.code === 'KeyD') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       claimKey(e);
-      LLA.log('hotkey ⌥n claimed');
+      LLA.log('hotkey ⌥d claimed');
       nextConversation();
       return;
     }
