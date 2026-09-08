@@ -552,6 +552,28 @@ then press the shortcut. Each `keydown` and `beforeinput` is logged with `key`,
 `keydown` appears at all, the content script is not loaded in that tab — check
 for `[LLA] v… ready` and reload the extension, not just the page.
 
+### A shortcut appears to do nothing
+
+`LLA.navLog()` records every shortcut, unconditionally, in a 40-entry ring
+buffer. When a press seems to do nothing, that answers the only question worth
+asking — did it arrive, and what did it see?
+
+```js
+LLA.navLog()
+```
+
+| Entries you see | What happened |
+| --- | --- |
+| nothing new | the keystroke never reached the extension |
+| `deduped` | two deliveries of one press, or two presses inside 80ms |
+| `nav` with `current: -1` | the active row could not be identified |
+| `click` then `click-result` with `moved: false` | the click was a silent no-op |
+| `nav-end` | the bottom of the ~20 rendered rows |
+
+**A common cause of "never arrived": DevTools has focus.** Chrome commands go to
+whatever window is focused, so a press aimed at the page while the DevTools pane
+is focused is consumed by DevTools. Click the page first.
+
 ### A shortcut works only sometimes
 
 Almost certainly two presses arriving inside the deduplication window. One

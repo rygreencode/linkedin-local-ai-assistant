@@ -724,6 +724,8 @@
       LLA.log('detection missed; continuing from last position', current);
     }
 
+    note('nav', { rows: items.length, current, lastNavIndex, retry: retry || null });
+
     if (current === -1 && !retry) {
       // LinkedIn drops the active marker briefly while it re-renders after a
       // navigation. Acting now would open row 0 and look like a jump to the
@@ -742,6 +744,7 @@
         setTimeout(() => nextConversation('after-scroll'), 700);
         return;
       }
+      note('nav-end', { rows: items.length, current });
       LLA.log(`at the end of the loaded list (${items.length} rows rendered)`);
       return;
     }
@@ -760,7 +763,19 @@
     LLA.log('clicking', clickable.tagName, clickable.className, '→', (clickable.textContent || '').trim().slice(0, 40));
     lastNavIndex = current === -1 ? 0 : current + 1;
     const previousThreadId = activeThreadId();
+    note('click', { to: lastNavIndex, tag: clickable.tagName, from: previousThreadId?.slice(0, 10) || null });
     clickable.click();
+
+    // Did the click actually navigate? A silent no-op is the failure mode that
+    // reads as "stuck", so record the outcome rather than assuming success.
+    setTimeout(() => {
+      const now = activeThreadId();
+      note('click-result', {
+        moved: now !== previousThreadId,
+        to: now?.slice(0, 10) || null,
+        activeNow: conversationItems().findIndex(isActiveConversation)
+      });
+    }, 1200);
     target.scrollIntoView({ block: 'nearest' });
     focusComposerAfterNavigation(previousThreadId);
   }
@@ -892,13 +907,25 @@
      sometimes. */
   const DEDUPE_MS = 80;
   const lastRun = {};
+
+  /* Recorded regardless of the debug flag. When a shortcut appears to do
+     nothing, the question is always "did it arrive, and what did it see?" —
+     dump this with LLA.navLog(). */
+  const trail = [];
+  function note(event, detail) {
+    trail.push({ t: new Date().toISOString().slice(11, 23), event, ...detail });
+    if (trail.length > 40) trail.shift();
+  }
+  LLA.navLog = () => trail;
   function runAction(name, via) {
     const now = Date.now();
     if (now - (lastRun[name] || 0) < DEDUPE_MS) {
+      note('deduped', { name, via, sinceMs: now - lastRun[name] });
       LLA.log(`ignoring duplicate ${name} from ${via}`);
       return;
     }
     lastRun[name] = now;
+    note('action', { name, via });
     LLA.log(`${name} via ${via}`);
     ACTIONS[name]?.();
   }
