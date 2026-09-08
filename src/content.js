@@ -687,9 +687,26 @@
     };
   };
 
+  /* The conversation list scrolls internally and renders a window of rows.
+     Nudge it when we run out, in case more can be loaded. */
+  function scrollListForMore(items) {
+    let node = items[items.length - 1]?.parentElement;
+    while (node) {
+      const style = getComputedStyle(node);
+      if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 4) {
+        if (node.scrollTop >= node.scrollHeight - node.clientHeight - 4) return false; // already at the bottom
+        node.scrollTop = node.scrollHeight;
+        LLA.log('scrolled the conversation list looking for more rows');
+        return true;
+      }
+      node = node.parentElement;
+    }
+    return false;
+  }
+
   let lastNavIndex = null;
 
-  function nextConversation() {
+  function nextConversation(retry) {
     if (!location.pathname.startsWith('/messaging')) return;
     const items = conversationItems();
     if (!items.length) {
@@ -706,10 +723,26 @@
       current = lastNavIndex;
       LLA.log('detection missed; continuing from last position', current);
     }
+
+    if (current === -1 && !retry) {
+      // LinkedIn drops the active marker briefly while it re-renders after a
+      // navigation. Acting now would open row 0 and look like a jump to the
+      // top, so give the marker one chance to reappear.
+      LLA.log('no active row and no history — waiting for the marker to settle');
+      setTimeout(() => nextConversation('after-settle'), 300);
+      return;
+    }
+
     // Nothing selected yet: start at the top rather than jumping to the second row.
     const target = current === -1 ? items[0] : items[current + 1];
     if (!target) {
-      LLA.log('already on the last conversation');
+      // LinkedIn renders about 20 rows and paginates the rest, so the bottom of
+      // the rendered window is not necessarily the last conversation.
+      if (retry !== 'after-scroll' && scrollListForMore(items)) {
+        setTimeout(() => nextConversation('after-scroll'), 700);
+        return;
+      }
+      LLA.log(`at the end of the loaded list (${items.length} rows rendered)`);
       return;
     }
 
@@ -852,11 +885,16 @@
   };
 
   /* The command and the in-page listener can both arrive for one keystroke.
-     Collapse them, keeping whichever wins the race. */
+     Collapse them, keeping whichever wins the race — but only just. The two
+     paths land within a few milliseconds of each other, whereas a deliberate
+     second press can follow within a couple of hundred, and at 400ms this
+     window was eating those. That is what made the shortcut work only
+     sometimes. */
+  const DEDUPE_MS = 80;
   const lastRun = {};
   function runAction(name, via) {
     const now = Date.now();
-    if (now - (lastRun[name] || 0) < 400) {
+    if (now - (lastRun[name] || 0) < DEDUPE_MS) {
       LLA.log(`ignoring duplicate ${name} from ${via}`);
       return;
     }

@@ -552,6 +552,23 @@ then press the shortcut. Each `keydown` and `beforeinput` is logged with `key`,
 `keydown` appears at all, the content script is not loaded in that tab — check
 for `[LLA] v… ready` and reload the extension, not just the page.
 
+### A shortcut works only sometimes
+
+Almost certainly two presses arriving inside the deduplication window. One
+keystroke can reach the extension twice — once as a Chrome command, once via the
+in-page fallback listener — so a repeat of the same action is ignored if it
+arrives too soon. That window was 400ms, which is longer than the gap between
+deliberate presses during fast triage, so every second press vanished. It is now
+80ms: the two delivery paths land within a few milliseconds of each other, while
+a real repeat press never does.
+
+`⌥D` also has a hard ceiling: LinkedIn renders about **20 conversation rows** and
+paginates the rest. At the bottom of that window the extension scrolls the list
+and retries once, but LinkedIn does not load more rows on a programmatic scroll —
+verified by scrolling to the bottom and waiting. Beyond 20 conversations, scroll
+the list by hand. The log says `at the end of the loaded list (20 rows rendered)`
+rather than pretending you reached the last conversation.
+
 ### ⌥D opens a profile, or goes nowhere
 
 The row was right, the element clicked inside it was not. A LinkedIn conversation
