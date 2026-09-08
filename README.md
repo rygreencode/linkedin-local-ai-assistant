@@ -194,6 +194,17 @@ Open a LinkedIn message thread. A bar appears above the composer.
 `Alt + F`, `Alt + D` and `Alt + M` are the keyboard shortcuts. Drafting and
 regenerating are button-only.
 
+**These are browser-level commands**, registered in the manifest and delivered to
+the extension by Chrome — LinkedIn cannot intercept them. Remap any of them at
+`chrome://extensions/shortcuts`; the reminder bubble shows whatever is bound.
+
+> An in-page key listener remains as a fallback, on `window` in the capture phase
+> so a page listener on `document` cannot pre-empt it. When both fire for one
+> keystroke the second is ignored within 400ms, so an action never runs twice.
+> Handling keys in the page alone was the earlier design and it failed: LinkedIn
+> registers its own capture-phase listeners, and the shortcut fell through to the
+> composer as a plain character (`∂` for ⌥D, `ƒ` for ⌥F).
+
 Unlike the other two, `Alt + M` is not restricted to `/messaging` — LinkedIn's
 overlay composer appears on other pages, and pasting the link there is just as
 useful.

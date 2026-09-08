@@ -179,6 +179,19 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   console.log('[LLA] idle shutdown:', res);
 });
 
+/* Browser-level shortcuts. A page cannot intercept these — LinkedIn registers
+   its own capture-phase key listeners, which is why the in-page handler could be
+   swallowed before it ran. Remappable at chrome://extensions/shortcuts. */
+chrome.commands.onCommand.addListener(async (command) => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !/^https:\/\/www\.linkedin\.com\//.test(tab.url || '')) return;
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: 'lla:command', command });
+  } catch (err) {
+    console.warn('[LLA] command not delivered:', command, err.message);
+  }
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'lla:generate') {
     generate(msg, sender.tab?.id).then(sendResponse);
@@ -186,6 +199,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg?.type === 'lla:ollama') {
     ollamaControl(msg.cmd).then(sendResponse);
+    return true;
+  }
+  if (msg?.type === 'lla:shortcuts') {
+    chrome.commands.getAll().then((cmds) => {
+      const shortcuts = {};
+      for (const c of cmds) if (c.name) shortcuts[c.name] = c.shortcut || '';
+      sendResponse({ ok: true, shortcuts });
+    });
     return true;
   }
   if (msg?.type === 'lla:ping') {

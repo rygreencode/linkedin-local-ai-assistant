@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Local LinkedIn AI Assistant",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Privacy-first LinkedIn reply drafting via a local Ollama server. Nothing leaves your machine.",
   "permissions": [
     "storage",
@@ -50,5 +50,28 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "commands": {
+    "toggle-unread": {
+      "suggested_key": {
+        "default": "Alt+F",
+        "mac": "Alt+F"
+      },
+      "description": "Toggle LinkedIn's Unread filter"
+    },
+    "next-conversation": {
+      "suggested_key": {
+        "default": "Alt+D",
+        "mac": "Alt+D"
+      },
+      "description": "Open the next conversation down"
+    },
+    "insert-meeting-link": {
+      "suggested_key": {
+        "default": "Alt+M",
+        "mac": "Alt+M"
+      },
+      "description": "Paste your meeting link into the composer"
+    }
   }
 }

@@ -100,6 +100,26 @@
 
   let hint = null;
 
+  /* Commands are remappable at chrome://extensions/shortcuts, so the bubble
+     should show what is actually bound rather than the shipped default. */
+  let boundShortcuts = null;
+
+  function applyBoundShortcuts() {
+    if (!hint || !boundShortcuts) return;
+    const pretty = (s) => s.replace(/Alt\+/g, '⌥').replace(/Command\+/g, '⌘').replace(/Ctrl\+/g, '⌃').toLowerCase();
+    for (const [command, key] of Object.entries(boundShortcuts)) {
+      const kbd = hint.shadow.querySelector(`kbd[data-command="${command}"]`);
+      if (kbd) kbd.textContent = key ? pretty(key) : '—';
+    }
+  }
+
+  send({ type: 'lla:shortcuts' }).then((res) => {
+    if (res?.ok) {
+      boundShortcuts = res.shortcuts;
+      applyBoundShortcuts();
+    }
+  });
+
   function renderHint() {
     if (!LLA.settings.showShortcutHint || !location.pathname.startsWith('/messaging')) {
       hint?.host.remove();
@@ -135,9 +155,9 @@
         </style>
         <div class="chip">
           <span class="x" title="Hide (re-enable in Settings)">&times;</span>
-          <div class="row"><kbd>⌥f</kbd> unread <span class="state off">off</span></div>
-          <div class="row"><kbd>⌥d</kbd> next conversation</div>
-          <div class="row"><kbd>⌥m</kbd> meeting link</div>
+          <div class="row"><kbd data-command="toggle-unread">⌥f</kbd> unread <span class="state off">off</span></div>
+          <div class="row"><kbd data-command="next-conversation">⌥d</kbd> next conversation</div>
+          <div class="row"><kbd data-command="insert-meeting-link">⌥m</kbd> meeting link</div>
           <div class="row native"><kbd>⌘↩</kbd> send (LinkedIn)</div>
         </div>`;
       shadow.querySelector('.x').addEventListener('click', () => {
@@ -147,6 +167,7 @@
       hint = { host, shadow };
     }
 
+    applyBoundShortcuts();
     const on = unreadFilterIsOn(findUnreadControl());
     const badge = hint.shadow.querySelector('.state');
     badge.textContent = on ? 'on' : 'off';
@@ -304,6 +325,11 @@
     }
     if (msg?.type === 'lla:pick') {
       LLA.startPicker(msg.key);
+      sendResponse({ ok: true });
+      return false;
+    }
+    if (msg?.type === 'lla:command') {
+      runAction(msg.command, 'browser command');
       sendResponse({ ok: true });
       return false;
     }
@@ -777,6 +803,26 @@
     return 'listening';
   };
 
+  const ACTIONS = {
+    'toggle-unread': () => toggleUnreadFilter(),
+    'next-conversation': () => nextConversation(),
+    'insert-meeting-link': () => insertMeetingLink()
+  };
+
+  /* The command and the in-page listener can both arrive for one keystroke.
+     Collapse them, keeping whichever wins the race. */
+  const lastRun = {};
+  function runAction(name, via) {
+    const now = Date.now();
+    if (now - (lastRun[name] || 0) < 400) {
+      LLA.log(`ignoring duplicate ${name} from ${via}`);
+      return;
+    }
+    lastRun[name] = now;
+    LLA.log(`${name} via ${via}`);
+    ACTIONS[name]?.();
+  }
+
   function onHotkey(e) {
     const key = (e.key || '').toLowerCase();
 
@@ -784,27 +830,26 @@
     // letter itself, hence the e.code check alongside e.key.
     if ((key === 'f' || e.code === 'KeyF') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       claimKey(e);
-      LLA.log('hotkey ⌥f claimed');
-      toggleUnreadFilter();
+      runAction('toggle-unread', 'page listener');
       return;
     }
 
     if ((key === 'd' || e.code === 'KeyD') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       claimKey(e);
-      LLA.log('hotkey ⌥d claimed');
-      nextConversation();
+      runAction('next-conversation', 'page listener');
       return;
     }
 
     if ((key === 'm' || e.code === 'KeyM') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       claimKey(e);
-      LLA.log('hotkey ⌥m claimed');
-      insertMeetingLink();
+      runAction('insert-meeting-link', 'page listener');
     }
   }
 
-  document.addEventListener('keydown', onHotkey, true);
-  document.addEventListener('beforeinput', onStrayInsert, true);
+  // window capture runs before document capture, so a page listener on document
+  // cannot stopImmediatePropagation us out of existence.
+  window.addEventListener('keydown', onHotkey, true);
+  window.addEventListener('beforeinput', onStrayInsert, true);
 
   /* ---------- Lifecycle: LinkedIn is an SPA, so re-mount on DOM churn ---------- */
 
@@ -853,8 +898,8 @@
   globalThis.__LLA_TEARDOWN = function () {
     observer.disconnect();
     clearTimeout(pending);
-    document.removeEventListener('keydown', onHotkey, true);
-    document.removeEventListener('beforeinput', onStrayInsert, true);
+    window.removeEventListener('keydown', onHotkey, true);
+    window.removeEventListener('beforeinput', onStrayInsert, true);
     try {
       chrome.storage.onChanged.removeListener(onStorageChanged);
       chrome.runtime.onMessage.removeListener(onRuntimeMessage);
