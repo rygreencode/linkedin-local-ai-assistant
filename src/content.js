@@ -120,6 +120,17 @@
     }
   });
 
+  /* findUnreadControl() walks every button and menu item on the page. Called
+     from each sync on a page that mutates continuously, that is real work for a
+     value that changes only when the user clicks a filter. */
+  let unreadStateCache = { at: 0, on: false };
+
+  function cachedUnreadState(force) {
+    if (!force && Date.now() - unreadStateCache.at < 500) return unreadStateCache.on;
+    unreadStateCache = { at: Date.now(), on: unreadFilterIsOn(findUnreadControl()) };
+    return unreadStateCache.on;
+  }
+
   function renderHint() {
     if (!LLA.settings.showShortcutHint || !location.pathname.startsWith('/messaging')) {
       hint?.host.remove();
@@ -168,7 +179,7 @@
     }
 
     applyBoundShortcuts();
-    const on = unreadFilterIsOn(findUnreadControl());
+    const on = cachedUnreadState();
     const badge = hint.shadow.querySelector('.state');
     badge.textContent = on ? 'on' : 'off';
     badge.className = 'state ' + (on ? 'on' : 'off');
@@ -397,6 +408,8 @@
   /* "Is this rendered?" — not "does it have area". checkVisibility accounts for
      display, visibility and content-visibility, and unlike measuring a rect it
      does not misjudge a block element in a narrow viewport. */
+  const warnedSelectors = new Set();
+
   function isVisible(el) {
     if (typeof el.checkVisibility === 'function') return el.checkVisibility();
     const r = el.getBoundingClientRect();
@@ -429,11 +442,16 @@
     // which is worse than doing nothing.
     if (hit && isVisible(hit.el)) {
       if (labelLooksUnread(hit.el)) return hit.el;
-      const label = (hit.el.getAttribute('aria-label') || hit.el.textContent || '').trim().slice(0, 40);
-      console.warn(
-        `[LLA] "${hit.selector}" resolves to "${label}", which is not the Unread filter — ignoring it.` +
-          (hit.tier === -1 ? ' Clear or re-Pick the override in Settings.' : '')
-      );
+      // LinkedIn mutates constantly, so this path runs often. Warn once per bad
+      // selector per page rather than filling the console.
+      if (!warnedSelectors.has(hit.selector)) {
+        warnedSelectors.add(hit.selector);
+        const label = (hit.el.getAttribute('aria-label') || hit.el.textContent || '').trim().slice(0, 40);
+        console.warn(
+          `[LLA] "${hit.selector}" resolves to "${label}", which is not the Unread filter — ignoring it.` +
+            (hit.tier === -1 ? ' Clear or re-Pick the override in Settings.' : '')
+        );
+      }
     }
 
     // Visibility matters: a match inside a closed menu is clickable in the DOM
@@ -518,7 +536,10 @@
     }
     el.click();
     LLA.log('toggled unread filter via control', el.getAttribute('aria-label') || el.textContent.trim());
-    setTimeout(renderHint, 400);
+    setTimeout(() => {
+      cachedUnreadState(true); // bypass the cache: the state just changed
+      renderHint();
+    }, 400);
   }
 
   function toggleUnreadFilter() {

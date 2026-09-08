@@ -26,6 +26,8 @@
   #bookingErr { color: #b3261e; font-size: 11px; margin-top: 4px; }
   #bookingCurrent { font-size: 11px; color: #666; margin-top: 6px; word-break: break-all; }
   #bookingCurrent.unset { color: #8a5300; }
+  #overridesCleared { color: #14632c; font-size: 11px; opacity: 0; transition: opacity .2s; }
+  #overridesCleared.show { opacity: 1; }
   #bookingSaved { color: #14632c; font-size: 11px; opacity: 0; transition: opacity .2s; }
   #bookingSaved.show { opacity: 1; }
   #diagCopied { font-size: 11px; color: #14632c; margin-top: 6px; min-height: 13px; }
@@ -35,6 +37,9 @@
 <div id="engine">Checking…</div>
 <h1>DOM diagnostics</h1>
 <div id="diag">Open a LinkedIn tab to run diagnostics.</div>
+<div class="booking-row"><button id="clearOverrides">Clear selector overrides</button>
+<span id="overridesCleared">Cleared</span></div>
+
 <h1>Meeting link</h1>
 <input type="text" id="bookingLink" placeholder="https://cal.com/you" autocomplete="off">
 <div id="bookingErr" hidden></div>

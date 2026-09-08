@@ -160,6 +160,18 @@ async function saveBooking() {
   setTimeout(() => $('bookingSaved').classList.remove('show'), 1500);
 }
 
+/* A stale override — one the element picker bound to something that has since
+   moved, or the wrong element — silently outranks every built-in selector, so
+   clearing it wants to be one click from the diagnostics that reveal it. */
+$('clearOverrides').onclick = async () => {
+  const stored = await chrome.storage.local.get('settings');
+  const settings = { ...globalThis.LLA_DEFAULT_SETTINGS, ...(stored.settings || {}), selectorOverrides: {} };
+  await chrome.storage.local.set({ settings });
+  $('overridesCleared').classList.add('show');
+  setTimeout(() => $('overridesCleared').classList.remove('show'), 1500);
+  checkDom();
+};
+
 $('saveBooking').onclick = saveBooking;
 $('bookingLink').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') saveBooking();
