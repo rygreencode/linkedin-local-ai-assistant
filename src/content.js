@@ -409,6 +409,23 @@
      display, visibility and content-visibility, and unlike measuring a rect it
      does not misjudge a block element in a narrow viewport. */
   const warnedSelectors = new Set();
+  const droppedOverrides = new Set();
+
+  /* Discard a stored override that resolves to the wrong element. Non-destructive
+     in effect — the built-in tiers take over immediately and the picker can bind
+     it again — but it stops one bad binding disabling a feature indefinitely. */
+  function dropOverride(key, resolvedLabel) {
+    if (droppedOverrides.has(key)) return;
+    droppedOverrides.add(key);
+    const overrides = { ...(LLA.settings.selectorOverrides || {}) };
+    if (!(key in overrides)) return;
+    delete overrides[key];
+    console.warn(
+      `[LLA] Your saved "${globalThis.LLA_SELECTOR_LABELS[key] || key}" selector resolved to ` +
+        `"${resolvedLabel}", which is wrong — discarding it and falling back to the built-in selectors.`
+    );
+    LLA.saveSettings({ selectorOverrides: overrides });
+  }
 
   function isVisible(el) {
     if (typeof el.checkVisibility === 'function') return el.checkVisibility();
@@ -442,15 +459,16 @@
     // which is worse than doing nothing.
     if (hit && isVisible(hit.el)) {
       if (labelLooksUnread(hit.el)) return hit.el;
-      // LinkedIn mutates constantly, so this path runs often. Warn once per bad
-      // selector per page rather than filling the console.
-      if (!warnedSelectors.has(hit.selector)) {
+
+      const label = (hit.el.getAttribute('aria-label') || hit.el.textContent || '').trim().slice(0, 40);
+      if (hit.tier === -1) {
+        // A picker override that resolves to the wrong control is worthless and
+        // outranks every built-in tier, so drop it rather than asking the user
+        // to go and clear it. Re-Pick if it really was deliberate.
+        dropOverride('unreadFilter', label);
+      } else if (!warnedSelectors.has(hit.selector)) {
         warnedSelectors.add(hit.selector);
-        const label = (hit.el.getAttribute('aria-label') || hit.el.textContent || '').trim().slice(0, 40);
-        console.warn(
-          `[LLA] "${hit.selector}" resolves to "${label}", which is not the Unread filter — ignoring it.` +
-            (hit.tier === -1 ? ' Clear or re-Pick the override in Settings.' : '')
-        );
+        console.warn(`[LLA] "${hit.selector}" resolves to "${label}", which is not the Unread filter — ignoring it.`);
       }
     }
 
