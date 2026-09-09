@@ -6,15 +6,36 @@
 
   LLA.settings = { ...globalThis.LLA_DEFAULT_SETTINGS };
 
+  /* An orphaned content script keeps running after its extension is reloaded,
+     but every chrome.* call throws. Check before touching the API rather than
+     catching the exception after the fact. */
+  LLA.runtimeAlive = function () {
+    try {
+      return Boolean(chrome.runtime?.id);
+    } catch {
+      return false;
+    }
+  };
+
   LLA.loadSettings = async function () {
-    const stored = await chrome.storage.local.get('settings');
-    LLA.settings = { ...globalThis.LLA_DEFAULT_SETTINGS, ...(stored.settings || {}) };
+    if (!LLA.runtimeAlive()) return LLA.settings; // keep the last known values
+    try {
+      const stored = await chrome.storage.local.get('settings');
+      LLA.settings = { ...globalThis.LLA_DEFAULT_SETTINGS, ...(stored.settings || {}) };
+    } catch (err) {
+      console.warn('[LLA] could not read settings:', err.message);
+    }
     return LLA.settings;
   };
 
   LLA.saveSettings = async function (patch) {
     LLA.settings = { ...LLA.settings, ...patch };
-    await chrome.storage.local.set({ settings: LLA.settings });
+    if (!LLA.runtimeAlive()) return LLA.settings;
+    try {
+      await chrome.storage.local.set({ settings: LLA.settings });
+    } catch (err) {
+      console.warn('[LLA] could not save settings:', err.message);
+    }
     return LLA.settings;
   };
 

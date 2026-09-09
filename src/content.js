@@ -356,7 +356,7 @@
       };
       sendResponse({
         ok: true,
-        version: chrome.runtime.getManifest().version,
+        version: LLA.runtimeAlive() ? chrome.runtime.getManifest().version : 'invalidated',
         url: location.pathname,
         selectors: safely('diagnose', () => LLA.diagnose()),
         nav: safely('debugNav', () => LLA.debugNav()),
@@ -969,6 +969,23 @@
     clearTimeout(pending);
     pending = null;
     lastSync = Date.now();
+
+    /* Self-retire if the extension has been reloaded out from under us. A
+       long-lived port with an onDisconnect listener is the textbook approach,
+       but in MV3 an open port keeps the service worker awake and its disconnect
+       also fires on ordinary worker idle-out, so it needs the same runtime.id
+       check anyway to avoid tearing down for the wrong reason. This loop
+       already runs on DOM churn, so the check is free and, on a page as busy as
+       LinkedIn, just as prompt. */
+    if (!LLA.runtimeAlive()) {
+      console.warn('[LLA] extension context invalidated — removing this instance from the page.');
+      try {
+        globalThis.__LLA_TEARDOWN?.();
+      } catch {
+        /* nothing left to clean up */
+      }
+      return;
+    }
     for (const step of [mount, renderHint, maybeAutoStart]) {
       try {
         step();
@@ -1022,10 +1039,10 @@
   LLA.loadSettings().then(() => {
     observer.observe(document.body, { childList: true, subtree: true });
     syncNow();
-    chrome.storage.onChanged.addListener(onStorageChanged);
+    if (LLA.runtimeAlive()) chrome.storage.onChanged.addListener(onStorageChanged);
     // Which build is actually live? Reloading a tab does not reload the
     // extension, so this is the quickest way to tell a stale copy apart.
-    LLA.version = chrome.runtime.getManifest().version;
+    LLA.version = LLA.runtimeAlive() ? chrome.runtime.getManifest().version : 'invalidated';
     console.log(`[LLA] v${LLA.version} ready`);
   });
 })();

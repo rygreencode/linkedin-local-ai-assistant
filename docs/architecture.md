@@ -44,6 +44,24 @@ through a `globalThis.LLA` namespace. Load order matters.
 `all: initial`, so LinkedIn's stylesheet cannot leak in and the extension's CSS
 cannot leak out.
 
+**Orphaned contexts.** Reloading the extension leaves the previous content
+script running in every open tab with a dead `chrome` API — every call throws.
+Three defences, in order of how much they matter here:
+
+1. *Guard before calling.* `LLA.runtimeAlive()` checks `chrome.runtime?.id`
+   inside a `try` (reading the property can itself throw). Settings reads and
+   writes fall back to the last known values instead of raising.
+2. *Self-retire.* `syncNow()` checks liveness and runs the teardown if the
+   context has died, so an orphan removes its own UI and listeners. The textbook
+   approach is a long-lived port with an `onDisconnect` listener, but in MV3 an
+   open port keeps the service worker awake and its disconnect also fires on
+   ordinary worker idle-out — so it needs the same `runtime.id` check anyway to
+   avoid tearing down for the wrong reason. The sync loop already runs on DOM
+   churn, making the check free and, on a page as busy as LinkedIn, just as
+   prompt.
+3. *Re-inject rather than asking for a manual refresh.* `reinjectOpenTabs()`
+   pushes fresh scripts into open LinkedIn tabs on install and startup.
+
 **Instance handover.** After an extension reload, the service worker re-injects
 into open LinkedIn tabs. Each instance publishes `globalThis.__LLA_TEARDOWN`; the
 next one calls it to disconnect observers, drop listeners, and strip the stale UI
